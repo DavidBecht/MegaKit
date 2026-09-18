@@ -1,0 +1,64 @@
+# ---- Eingebettetes Fremd-Repository ----
+# megacard/ ist ein eigenes Git-Repository (htl-rankweil/megacard) und wird
+# dort versioniert, nicht hier.
+/megacard/
+
+# ---- megalib: Microchip Studio / AVR-GCC Build-Output ----
+# erzeugt .o .d .elf .hex .eep .lss .map .srec und das Makefile
+# Verankert, damit die Regel nicht Verzeichnisse wie include/c++/.../debug/
+# in den Toolchains unter megasim/ trifft (Git unter Windows ignoriert dabei
+# die Gross-/Kleinschreibung).
+/megalib/Debug/
+/megalib/Release/
+
+# Microchip Studio Benutzer- und Sitzungsdateien
+*.atsuo
+*.componentinfo.xml
+*.cproj.user
+.vs/
+
+# EEPROM-Abbild, das der Simulator im Projektordner ablegt
+/megalib/megacard.eep
+
+# ---- megasim: erzeugte Dateien ----
+# DLL-Builds des Simulators
+/megasim/build/
+# PyInstaller-Output
+/megasim/dist_onefile/
+/megasim/pyinstaller_build_onefile/
+# Vollstaendige WinLibs-GCC von install_gcc.ps1, nur fuer build.py --gcc-neu
+/megasim/winlibs/
+# Testprogramm, wird von run_tests.py bei jedem Lauf neu gebaut
+/megasim/tests/megalib_test.exe
+
+# ---- megasound: PyInstaller-Output von build.py ----
+/megasound/build/
+/megasound/dist/
+
+# Bewusst NICHT ignoriert (kein Build-Output, sondern mitgeliefertes Werkzeug):
+#   megasim/gcc_minimal/  - ausgeduennte GCC, die build.py in die exe packt
+
+# ---- Python ----
+__pycache__/
+*.py[co]
+*.egg-info/
+/.venv/
+/venv/
+/megasim/.venv/
+/megasim/venv/
+/megasound/.venv/
+/megasound/venv/
+
+# ---- Office-Sperr- und Temporaerdateien ----
+~$*
+*.tmp
+
+# ---- Windows / OneDrive ----
+desktop.ini
+Thumbs.db
+
+# ---- IDEs ----
+.idea/
+.vscode/
+
+CLAUDE.md
