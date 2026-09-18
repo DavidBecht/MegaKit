@@ -1,5 +1,5 @@
 """
-build.py — Baut megacard-sim.exe (Python + pygame + GCC in einer Datei).
+build.py — Baut megasim.exe (Python + pygame + GCC in einer Datei).
 
 Die mitgelieferte GCC ist gcc_minimal/, ein ausgeduennter Auszug aus WinLibs,
 der versioniert wird. Neu zusammengestellt wird er nur mit --gcc-neu, dafuer
@@ -33,7 +33,7 @@ GCC_TMP  = os.path.join(ROOT, "gcc_minimal")
 DIST_DIR = os.path.join(ROOT, "dist_onefile")
 WORK_DIR = os.path.join(ROOT, "pyinstaller_build_onefile")
 GCC_ZIP  = os.path.join(WORK_DIR, "gcc.zip")
-EXE      = os.path.join(DIST_DIR, "megacard-sim.exe")
+EXE      = os.path.join(DIST_DIR, "megasim.exe")
 
 VERSION_MUSTER = re.compile(r"^VERSION = '(\d+)\.(\d+)\.(\d+)'(?=\r?$)", re.MULTILINE)
 
@@ -291,8 +291,8 @@ VSVersionInfo(
         StringStruct('CompanyName', 'HTL Rankweil'),
         StringStruct('FileDescription', 'megasim - Simulator fuer die MEGACARD'),
         StringStruct('FileVersion', '{text}'),
-        StringStruct('InternalName', 'megacard-sim'),
-        StringStruct('OriginalFilename', 'megacard-sim.exe'),
+        StringStruct('InternalName', 'megasim'),
+        StringStruct('OriginalFilename', 'megasim.exe'),
         StringStruct('ProductName', 'MegaKit megasim'),
         StringStruct('ProductVersion', '{text}')
       ])
@@ -350,7 +350,7 @@ def run_pyinstaller(version):
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
-        "--name", "megacard-sim",
+        "--name", "megasim",
         "--distpath", DIST_DIR,
         "--workpath", WORK_DIR,
         "--specpath", WORK_DIR,        # keine .spec-Datei im Quellordner
@@ -382,7 +382,7 @@ def exe_frei_pruefen():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Baut megacard-sim.exe")
+    parser = argparse.ArgumentParser(description="Baut megasim.exe")
     parser.add_argument("--clean", action="store_true",
                         help="PyInstaller-Cache und Spec-Datei vorher loeschen")
     parser.add_argument("--bump", choices=("patch", "minor", "major"),
@@ -407,7 +407,7 @@ def main():
     if args.clean:
         print("Cache loeschen …")
         shutil.rmtree(WORK_DIR, ignore_errors=True)
-        spec = os.path.join(ROOT, "megacard-sim.spec")
+        spec = os.path.join(ROOT, "megasim.spec")
         if os.path.isfile(spec):
             os.remove(spec)
 

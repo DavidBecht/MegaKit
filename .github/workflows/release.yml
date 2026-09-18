@@ -1,0 +1,161 @@
+# Baut megasim.exe, megasound.exe und das Microchip-Studio-Template.
+#
+# Ausloeser:
+#   - Tag vX.Y.Z pushen  -> bauen, pruefen, GitHub-Release mit allen drei Dateien
+#   - Push auf main / Pull Request -> nur bauen und pruefen, Ergebnisse als Artefakte
+#   - Actions -> "Build und Release" -> Run workflow -> wie Push auf main
+#
+# Release anlegen:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+
+name: Build und Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # -------------------------------------------------------------------------
+  # Unit-Tests der megalib, mit der GCC, die auch im Simulator steckt
+  # -------------------------------------------------------------------------
+  tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: megalib-Tests
+        shell: pwsh
+        run: |
+          $env:MEGACARD_GCC = "$env:GITHUB_WORKSPACE\megasim\gcc_minimal\bin\gcc.exe"
+          python megasim/tests/run_tests.py
+
+  # -------------------------------------------------------------------------
+  # megasim.exe
+  # -------------------------------------------------------------------------
+  megasim:
+    runs-on: windows-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Abhaengigkeiten
+        run: python -m pip install pygame pyinstaller
+      - name: Bauen
+        run: python megasim/build.py
+      - name: Kurztest
+        shell: pwsh
+        run: |
+          $ausgabe = & megasim/dist_onefile/megasim.exe --version
+          Write-Host $ausgabe
+          if ($ausgabe -notmatch '^megasim \d+\.\d+\.\d+') { throw "megasim.exe startet nicht" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: megasim
+          path: megasim/dist_onefile/megasim.exe
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # megasound.exe
+  # -------------------------------------------------------------------------
+  megasound:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Abhaengigkeiten
+        run: python -m pip install pyinstaller
+      - name: Bauen
+        run: python megasound/build.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: megasound
+          path: megasound/dist/megasound.exe
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # Template fuer Microchip Studio, mit avr-gcc probegebaut
+  # -------------------------------------------------------------------------
+  template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: avr-gcc
+        run: sudo apt-get update && sudo apt-get install -y gcc-avr avr-libc binutils-avr
+      - name: Version bestimmen
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "wert=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "wert=dev-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Bauen und pruefen
+        run: python template/build_template.py --version "${{ steps.version.outputs.wert }}" --pruefen
+      - uses: actions/upload-artifact@v4
+        with:
+          name: template
+          path: template/dist/*.zip
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
+  # Release, nur fuer Tags vX.Y.Z
+  # -------------------------------------------------------------------------
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [megasim, megasound, template]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefakte
+          merge-multiple: true
+      - name: Versionen abgleichen
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          sim=$(grep -oP "^VERSION = '\K[0-9.]+" megasim/sim.py)
+          sound=$(grep -oP "^VERSION = '\K[0-9.]+" megasound/megasound.py)
+          echo "Tag $tag, megasim $sim, megasound $sound"
+          # Abweichungen sind erlaubt, sollen aber auffallen
+          [ "$sim" = "$tag" ]   || echo "::warning::megasim meldet sich als $sim, der Tag ist $tag"
+          [ "$sound" = "$tag" ] || echo "::warning::megasound meldet sich als $sound, der Tag ist $tag"
+          {
+            echo "## MegaKit $tag"
+            echo
+            echo "| Datei | Inhalt |"
+            echo "|---|---|"
+            echo "| \`megasim.exe\` | Simulator der MEGACARD, Version $sim |"
+            echo "| \`megasound.exe\` | MIDI in Tontabelle, Version $sound |"
+            echo "| \`Template_HTL_Rankweil_MegaLib_V$tag.zip\` | Projektvorlage fuer Microchip Studio mit megalib $tag |"
+            echo
+            echo "**Template installieren:** ZIP unveraendert nach \`Dokumente\\Atmel Studio\\7.0\\Templates\\ProjectTemplates\\\` kopieren, dann Datei → Neu → Projekt."
+            echo
+            echo "**Simulator in Microchip Studio:** Tools → External Tools, Command \`megasim.exe\`, Arguments \`\"\$(ProjectDir).\"\`, Use Output window anhaken."
+          } > notizen.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: MegaKit ${{ github.ref_name }}
+          body_path: notizen.md
+          files: artefakte/*
+          fail_on_unmatched_files: true

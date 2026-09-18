@@ -64,7 +64,10 @@ def main():
     befehl += ["-I" + p for p in include_pfade(lib)]
     befehl += ["-DF_CPU=12000000UL", "-DNDEBUG", "-std=gnu11",
                "-Wall", "-Wextra", "-Wno-unused-parameter",
-               "-include", "stdint.h", "-include", "stdbool.h"]
+               "-include", "stdint.h", "-include", "stdbool.h",
+               # libgcc als DLL wie beim Simulator: gcc_minimal enthaelt
+               # libgcc_s, aber nicht das statische libgcc_eh.a
+               "-shared-libgcc"]
     befehl += [os.path.join(HIER, "megalib_test.c"), os.path.join(HIER, "main.c")]
     befehl += quellen_sammeln(lib)
     befehl += [os.path.join(SIM, "fake_src", n)

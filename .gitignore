@@ -35,6 +35,9 @@
 /megasound/build/
 /megasound/dist/
 
+# ---- template: ZIP von build_template.py ----
+/template/dist/
+
 # Bewusst NICHT ignoriert (kein Build-Output, sondern mitgeliefertes Werkzeug):
 #   megasim/gcc_minimal/  - ausgeduennte GCC, die build.py in die exe packt
 

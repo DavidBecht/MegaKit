@@ -972,7 +972,7 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
 # Launcher-Watchdog
 # ---------------------------------------------------------------------------
 # Microchip Studio startet das External Tool als
-#     cmd.exe /k "megacard-sim.exe" "<Projektordner>"
+#     cmd.exe /k "megasim.exe" "<Projektordner>"
 # Der Stopp-Knopf ruft TerminateProcess auf — aber nur fuer die cmd.exe.
 # TerminateProcess ist nicht abfangbar und erreicht Kindprozesse gar nicht,
 # es kommt also auch kein Signal an. Der Simulator lief bisher verwaist
@@ -984,7 +984,11 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
 # cmd.exe darueber. Bei anderen Eltern — Explorer, Shell, IDE — passiert
 # nichts, damit ein normaler Start nicht sofort wieder abbricht.
 
-_WATCHED_PARENTS = ("megacard-sim.exe", "cmd.exe")
+# Der eigene Programmname kommt aus sys.executable, damit ein Umbenennen der
+# exe den Watchdog nicht still abschaltet.
+_WATCHED_PARENTS = {"cmd.exe", "megasim.exe"}
+if getattr(sys, "frozen", False):
+    _WATCHED_PARENTS.add(os.path.basename(sys.executable).lower())
 
 def _process_table():
     """{pid: (ppid, exe_name)} ueber CreateToolhelp32Snapshot."""
