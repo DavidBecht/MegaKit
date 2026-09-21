@@ -38,6 +38,18 @@
 #endif
 
 /**
+ * @brief Laenge des Zwischenpuffers von display_draw_printf().
+ *
+ * Der Puffer liegt waehrend des Aufrufs auf dem Stack und belegt danach
+ * keinen Speicher mehr. Laengere Ausgaben werden abgeschnitten. Bei 1x
+ * entsprechen 24 Zeichen 96 Pixel, also der vollen Breite des Displays.
+ * Projektspezifisch vor dem Einbinden ueberschreibbar.
+ */
+#ifndef DISPLAY_DRAW_TEXT_MAX
+#define DISPLAY_DRAW_TEXT_MAX 24
+#endif
+
+/**
  * @brief Initialisiert das Zeichenmodul und definiert ein Zeichenfenster.
  *
  * Alle Koordinaten (x, y) in den Zeichenfunktionen sind IMMER Pixelkoordinaten
@@ -490,5 +502,75 @@ void display_draw_string(uint8_t x, uint8_t y, const char *s, FontSize_t size);
  *          display_draw_string().
  */
 void display_draw_string_P(uint8_t x, uint8_t y, PGM_P s, FontSize_t size);
+
+
+/**
+ * @brief Zeichnet eine Zahl.
+ *
+ * Wandelt den Wert ohne printf in Text um und zeichnet ihn. Kostet daher
+ * nur wenige hundert Byte Flash, kann aber auch nichts anderes als eine
+ * vorzeichenlose Dezimalzahl.
+ *
+ * @param x     Start-X-Pixelposition relativ zum Zeichenfenster.
+ * @param y     Start-Y-Pixelposition relativ zum Zeichenfenster.
+ * @param wert  Auszugebende Zahl, 0 bis 65535.
+ * @param size  Skalierungsfaktor (FontSize_t). 0 gilt als 1x.
+ */
+void display_draw_zahl(uint8_t x, uint8_t y, uint16_t wert, FontSize_t size);
+
+
+/**
+ * @brief Zeichnet ein Byte als acht Nullen und Einsen.
+ *
+ * Links steht Bit 7, rechts Bit 0, wie in der ueblichen Schreibweise
+ * 0b10010110. Nuetzlich, um Bitoperationen sichtbar zu machen.
+ *
+ * @param x     Start-X-Pixelposition relativ zum Zeichenfenster.
+ * @param y     Start-Y-Pixelposition relativ zum Zeichenfenster.
+ * @param wert  Auszugebendes Byte.
+ * @param size  Skalierungsfaktor (FontSize_t). 0 gilt als 1x.
+ */
+void display_draw_binaer(uint8_t x, uint8_t y, uint8_t wert, FontSize_t size);
+
+
+/**
+ * @brief Zeichnet formatierten Text, Format aus dem RAM.
+ *
+ * Setzt den Text wie printf aus dem Format und den weiteren Argumenten
+ * zusammen und zeichnet ihn:
+ *
+ *     display_draw_printf(4, 12, FONT_SIZE_1X, "PUNKTE %u", punkte);
+ *
+ * Der Zwischenpuffer liegt auf dem Stack und ist DISPLAY_DRAW_TEXT_MAX
+ * Zeichen lang; laengere Ausgaben werden abgeschnitten.
+ *
+ * @note Zieht vsnprintf aus der avr-libc nach sich und kostet damit rund
+ *       1,5 KByte Flash. Wer nur eine Zahl ausgibt, nimmt besser
+ *       display_draw_zahl(). Fliesskommaformate wie %f sind in der
+ *       Standardeinstellung von Microchip Studio nicht enthalten.
+ *
+ * @param x       Start-X-Pixelposition relativ zum Zeichenfenster.
+ * @param y       Start-Y-Pixelposition relativ zum Zeichenfenster.
+ * @param size    Skalierungsfaktor (FontSize_t). 0 gilt als 1x.
+ * @param format  Formatstring im RAM, danach die einzusetzenden Werte.
+ */
+void display_draw_printf(uint8_t x, uint8_t y, FontSize_t size, const char *format, ...)
+	__attribute__((format(printf, 4, 5)));
+
+
+/**
+ * @brief Zeichnet formatierten Text, Format aus dem Programmspeicher.
+ *
+ * Wie display_draw_printf(), der Formatstring liegt aber im Flash und
+ * belegt keinen SRAM:
+ *
+ *     display_draw_printf_P(4, 12, FONT_SIZE_1X, PSTR("PUNKTE %u"), punkte);
+ *
+ * @param x       Start-X-Pixelposition relativ zum Zeichenfenster.
+ * @param y       Start-Y-Pixelposition relativ zum Zeichenfenster.
+ * @param size    Skalierungsfaktor (FontSize_t). 0 gilt als 1x.
+ * @param format  Formatstring im PROGMEM, danach die einzusetzenden Werte.
+ */
+void display_draw_printf_P(uint8_t x, uint8_t y, FontSize_t size, PGM_P format, ...);
 
 #endif /* DISPLAY_DRAW_H_ */

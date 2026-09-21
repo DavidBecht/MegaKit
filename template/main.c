@@ -21,12 +21,10 @@
 // Die Werte muessen beim Uebersetzen feststehen, display_draw_init() legt
 // daraus den Videopuffer an: Breite * Hoehe / 8 = 576 Byte SRAM. Die ganze
 // Anzeige (1024 Byte) passt nicht in den Speicher des ATmega16.
-enum {
-	BREITE = 96,
-	HOEHE  = 48,
-	X_POS  = 16,
-	Y_POS  = 8,
-};
+#define BREITE  96
+#define HOEHE   48
+#define X_POS   16
+#define Y_POS   8
 
 // Taster S0..S3 an PA0..PA3, gedrueckt = 0
 #define TASTER_MASKE 0x0F

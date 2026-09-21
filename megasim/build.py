@@ -188,7 +188,7 @@ def header_ermitteln(gcc_dir):
         for name in AVR_HEADER:
             # Nicht jede Bibliothek hat jeden Header (MinGW etwa kein alloca.h)
             f.write(f"#if __has_include(<{name}.h>)\n#include <{name}.h>\n#endif\n")
-        for name in ("avr/io.h", "avr/interrupt.h", "avr/pgmspace.h",
+        for name in ("avr/io.h", "avr/interrupt.h", "avr/pgmspace.h", "util/atomic.h",
                      "avr/eeprom.h", "util/delay.h"):
             f.write(f"#include <{name}>\n")
 

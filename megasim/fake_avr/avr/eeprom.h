@@ -16,4 +16,9 @@ void     eeprom_write_word  (uint16_t *addr, uint16_t value);
 void     eeprom_update_byte (uint8_t  *addr, uint8_t  value);
 void     eeprom_update_word (uint16_t *addr, uint16_t value);
 
+#include <stddef.h>
+void     eeprom_read_block  (void *ziel, const void *addr, size_t anzahl);
+void     eeprom_write_block (const void *quelle, void *addr, size_t anzahl);
+void     eeprom_update_block(const void *quelle, void *addr, size_t anzahl);
+
 #endif /* FAKE_AVR_EEPROM_H_ */

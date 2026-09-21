@@ -217,6 +217,96 @@ int pruefungen(void)
 		behaupte(gesetzte_pixel() == 0, "NULL als Bild zeichnet nichts");
 	}
 
+	/* --- Zahlen und formatierter Text ------------------------------------ */
+	{
+		/* display_draw_zahl muss Pixel fuer Pixel dasselbe ergeben wie der
+		   von Hand zusammengebaute Text. */
+		display_draw_clear();
+		display_draw_string(0, 0, "4711", FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t vom_string = gesetzte_pixel();
+
+		display_draw_clear();
+		display_draw_zahl(0, 0, 4711, FONT_SIZE_1X);
+		display_draw_show();
+		behaupte(gesetzte_pixel() == vom_string && vom_string > 0,
+		         "display_draw_zahl zeichnet wie display_draw_string");
+
+		display_draw_clear();
+		display_draw_zahl(0, 0, 0, FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t null_pixel = gesetzte_pixel();
+		display_draw_clear();
+		display_draw_string(0, 0, "0", FONT_SIZE_1X);
+		display_draw_show();
+		behaupte(null_pixel == gesetzte_pixel() && null_pixel > 0,
+		         "display_draw_zahl gibt die Null aus");
+
+		display_draw_clear();
+		display_draw_zahl(0, 0, 65535, FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t max_pixel = gesetzte_pixel();
+		display_draw_clear();
+		display_draw_string(0, 0, "65535", FONT_SIZE_1X);
+		display_draw_show();
+		behaupte(max_pixel == gesetzte_pixel(), "display_draw_zahl schafft 65535");
+
+		/* display_draw_binaer: Bit 7 links, Bit 0 rechts. */
+		display_draw_clear();
+		display_draw_string(0, 0, "10010110", FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t vom_text = gesetzte_pixel();
+		display_draw_clear();
+		display_draw_binaer(0, 0, 0x96, FONT_SIZE_1X);
+		display_draw_show();
+		behaupte(gesetzte_pixel() == vom_text && vom_text > 0,
+		         "display_draw_binaer zeigt 0x96 als 10010110");
+
+		display_draw_clear();
+		display_draw_binaer(0, 0, 0x01, FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t bit0 = gesetzte_pixel();
+		display_draw_clear();
+		display_draw_string(0, 0, "00000001", FONT_SIZE_1X);
+		display_draw_show();
+		behaupte(bit0 == gesetzte_pixel(), "display_draw_binaer setzt Bit 0 nach rechts");
+
+		/* printf mit Format muss dasselbe Bild ergeben wie der fertige Text. */
+		display_draw_clear();
+		display_draw_string(0, 0, "PUNKTE 42", FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t erwartet = gesetzte_pixel();
+
+		display_draw_clear();
+		display_draw_printf(0, 0, FONT_SIZE_1X, "PUNKTE %u", 42u);
+		display_draw_show();
+		behaupte(gesetzte_pixel() == erwartet, "display_draw_printf setzt das Format ein");
+
+		display_draw_clear();
+		display_draw_printf_P(0, 0, FONT_SIZE_1X, PSTR("PUNKTE %u"), 42u);
+		display_draw_show();
+		behaupte(gesetzte_pixel() == erwartet, "display_draw_printf_P wie die RAM-Fassung");
+
+		/* Zu langer Text wird abgeschnitten, nicht ueber den Puffer geschrieben. */
+		display_draw_clear();
+		display_draw_printf(0, 0, FONT_SIZE_1X, "%s",
+		                    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+		display_draw_show();
+		display_draw_clear();
+		char lang[DISPLAY_DRAW_TEXT_MAX];
+		memset(lang, 'A', sizeof lang - 1);
+		lang[sizeof lang - 1] = '\0';
+		display_draw_string(0, 0, lang, FONT_SIZE_1X);
+		display_draw_show();
+		const uint16_t abgeschnitten = gesetzte_pixel();
+		display_draw_clear();
+		display_draw_printf(0, 0, FONT_SIZE_1X, "%s",
+		                    "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
+		display_draw_show();
+		behaupte(gesetzte_pixel() == abgeschnitten,
+		         "display_draw_printf schneidet bei DISPLAY_DRAW_TEXT_MAX ab");
+	}
+
 	printf("\n%d von %d Pruefungen bestanden.\n", geprueft - fehler, geprueft);
 	return fehler;
 }

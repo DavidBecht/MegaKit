@@ -15,12 +15,21 @@ extern volatile uint8_t  PINC_reg, DDRC_reg, PORTC_reg;
 extern volatile uint8_t  PIND_reg, DDRD_reg, PORTD_reg;
 extern volatile uint8_t  TCCR0_reg,  OCR0_reg,  TCNT0_reg;
 extern volatile uint8_t  TCCR1A_reg, TCCR1B_reg;
-extern volatile uint16_t OCR1A_reg;
+extern volatile uint16_t OCR1A_reg, OCR1B_reg, TCNT1_reg;
 extern volatile uint8_t  TCCR2_reg,  OCR2_reg;
 extern volatile uint8_t  TIMSK_reg,  TIFR_reg;
 extern volatile uint8_t  ADMUX_reg,  ADCSRA_reg;
 extern volatile uint16_t ADCW_reg;
 extern volatile uint8_t  ADCH_reg,   ADCL_reg;
+
+/* ADC: Zugriffe laufen ueber diese Funktionen, damit eine gestartete
+   Wandlung beim naechsten Lesen fertig ist. Siehe sim_api.c. */
+extern volatile uint16_t sim_poti;          /* Stellung des Potis, 0..1023 */
+volatile uint8_t  *sim_adcsra(void);
+volatile uint16_t *sim_adcw(void);
+volatile uint8_t  *sim_adch(void);
+volatile uint8_t  *sim_adcl(void);
+void sim_adc_poll(void);
 
 /* ISR registry */
 typedef void (*sim_isr_func_t)(void);

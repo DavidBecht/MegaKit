@@ -33,6 +33,8 @@
 #define TCCR1A TCCR1A_reg
 #define TCCR1B TCCR1B_reg
 #define OCR1A  OCR1A_reg
+#define OCR1B  OCR1B_reg
+#define TCNT1  TCNT1_reg
 
 /* ---- Timer 2 (Game timing) ---- */
 #define TCCR2 TCCR2_reg
@@ -42,12 +44,15 @@
 #define TIMSK TIMSK_reg
 #define TIFR  TIFR_reg
 
-/* ---- ADC ---- */
+/* ---- ADC ----
+   Ueber Zugriffsfunktionen, damit eine mit ADSC gestartete Wandlung beim
+   naechsten Lesen fertig ist. ADC ist wie beim AVR ein zweiter Name fuer ADCW. */
 #define ADMUX  ADMUX_reg
-#define ADCSRA ADCSRA_reg
-#define ADCW   ADCW_reg
-#define ADCH   ADCH_reg
-#define ADCL   ADCL_reg
+#define ADCSRA (*sim_adcsra())
+#define ADCW   (*sim_adcw())
+#define ADC    ADCW
+#define ADCH   (*sim_adch())
+#define ADCL   (*sim_adcl())
 
 /* ---- Bit-position names (0-7, same across all ports) ---- */
 #define PA0 0

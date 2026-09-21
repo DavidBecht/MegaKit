@@ -478,8 +478,11 @@ def load_dll(dll_path):
     lib.main.restype                       = ctypes.c_int
     lib.sim_soft_reset.argtypes            = []
     lib.sim_soft_reset.restype             = None
-    lib.display_draw_sprite_reset.argtypes = []
-    lib.display_draw_sprite_reset.restype  = None
+    try:                                   # nur mit Sprite-Bibliothek vorhanden
+        lib.display_draw_sprite_reset.argtypes = []
+        lib.display_draw_sprite_reset.restype  = None
+    except AttributeError:
+        pass
 
     # Zeichenfenster ermitteln.
     # 1. Wahl: die Getter aus display_draw.c — die liefern das Fenster, das
@@ -551,23 +554,72 @@ def terminate_thread(thread):
 # ---------------------------------------------------------------------------
 PRESCALERS = {0: 0, 1: 1, 2: 8, 3: 64, 4: 256, 5: 1024}
 
-def isr_thread(lib, ocr1a, tccr1b, default_fps, frame_event, stop_event):
-    """Fire TIMER1_COMPA_vect at the rate set by OCR1A / TCCR1B."""
-    isr_name = b"TIMER1_COMPA_vect"
+
+def _takt(stop_event, periode_fn, ausloesen):
+    """Ruft ausloesen() im Takt von periode_fn() auf, im Mittel genau.
+
+    Windows weckt einen wartenden Faden nur etwa alle 15 ms. Ein Timer mit
+    1 ms Periode liefe mit einfachem Warten also rund fuenfzehnmal zu
+    langsam. Stattdessen wird grob gewartet und nachgeholt, was seit dem
+    letzten Aufwachen faellig geworden ist. Einzelne Aufrufe kommen dadurch
+    gebuendelt, Zaehler und Uhren im Programm stimmen aber.
+
+    periode_fn liefert die Periode in Sekunden oder None, solange der Timer
+    steht beziehungsweise sein Interrupt gesperrt ist.
+    """
+    naechster = None
     while not stop_event.is_set():
-        cs        = tccr1b.value & 0x07
-        prescaler = PRESCALERS.get(cs, 0)
-        ocr       = ocr1a.value
+        periode = periode_fn()
+        if not periode:
+            naechster = None
+            if stop_event.wait(timeout=0.02):
+                break
+            continue
 
-        if prescaler > 0 and ocr > 0:
-            period = (ocr + 1) * prescaler / 12_000_000
-        else:
-            period = 1.0 / default_fps
-
-        if stop_event.wait(timeout=period):
+        jetzt = time.perf_counter()
+        if naechster is None:
+            naechster = jetzt + periode
+        if jetzt >= naechster:
+            anzahl = int((jetzt - naechster) / periode) + 1
+            for _ in range(min(anzahl, 64)):
+                ausloesen()
+            naechster += anzahl * periode
+            if naechster < jetzt - 0.25:          # zu weit hinterher, neu ansetzen
+                naechster = jetzt + periode
+        rest = naechster - time.perf_counter()
+        if stop_event.wait(timeout=max(0.0005, min(0.004, rest))):
             break
+
+
+def isr_thread(lib, ocr1a, tccr1b, default_fps, frame_event, stop_event):
+    """Loest TIMER1_COMPA_vect im Takt von OCR1A und TCCR1B aus.
+
+    Ohne laufenden Timer1 wird mit default_fps weitergetaktet, damit die
+    Anzeige auch bei Programmen ohne Sprites regelmaessig neu gezeichnet wird.
+    """
+    isr_name = b"TIMER1_COMPA_vect"
+    try:
+        timsk = ctypes.c_uint8.in_dll(lib, "TIMSK_reg")
+    except (ValueError, OSError):
+        timsk = None
+
+    def periode():
+        prescaler = PRESCALERS.get(tccr1b.value & 0x07, 0)
+        ocr = ocr1a.value
+        if prescaler > 0 and ocr > 0:
+            return (ocr + 1) * prescaler / F_CPU_SIM
+        return 1.0 / default_fps
+
+    def ausloesen():
         lib.sim_call_isr(isr_name)
+        # Kanal B: im CTC-Modus mit OCR1A als Obergrenze einmal je Periode.
+        # Die megalib belegt TIMER1_COMPA_vect fuer die Sprites, eigene
+        # Programme weichen deshalb auf COMPB aus.
+        if timsk is not None and timsk.value & (1 << 3):      # OCIE1B
+            lib.sim_call_isr(b"TIMER1_COMPB_vect")
         frame_event.set()   # pygame signalisieren: neuer Frame bereit
+
+    _takt(stop_event, periode, ausloesen)
 
 # ---------------------------------------------------------------------------
 # Timer2 und Ton
@@ -581,39 +633,54 @@ F_CPU_SIM = 12_000_000
 TON_RATE = 22050
 
 
-def isr_thread_t2(lib, tccr2, ocr2, timsk, stop_event):
-    """Loest TIMER2_COMP_vect aus, solange OCIE2 gesetzt ist.
+# Die beiden 8-Bit-Timer: Registernamen, Bits in TIMSK, Vorteiler, Vektoren.
+# Aufbau von TCCR0 und TCCR2 ist gleich: CS in Bit 0..2, WGMx1 (CTC) in Bit 3.
+TIMER8 = {
+    0: dict(tccr="TCCR0_reg", ocr="OCR0_reg", ocie=1, toie=0, teiler=PRESCALERS_T0,
+            comp=b"TIMER0_COMP_vect", ovf=b"TIMER0_OVF_vect"),
+    2: dict(tccr="TCCR2_reg", ocr="OCR2_reg", ocie=7, toie=6, teiler=PRESCALERS_T2,
+            comp=b"TIMER2_COMP_vect", ovf=b"TIMER2_OVF_vect"),
+}
 
-    Damit laeuft die Ablaufsteuerung von sound.c auch im Simulator. Der
-    Takt ergibt sich wie auf der Hardware aus Vorteiler und OCR2.
+
+def timer8_threads_starten(lib, stop_event):
+    """Startet je Timer0 und Timer2 einen Faden fuer Compare und Ueberlauf.
+
+    Compare: im CTC-Modus alle (OCR + 1) Takte des Vorteilers, sonst alle 256.
+    Ueberlauf: nur ausserhalb von CTC, alle 256 Takte. Beide nur bei
+    gesetztem Freigabebit in TIMSK. sound.c nutzt Timer2 im CTC-Modus mit
+    OCIE2 als Ablaufsteuerung; ein Programm ohne Ton kann Timer0 und
+    Timer2 fuer eigene Zwecke verwenden.
     """
-    isr_name = b"TIMER2_COMP_vect"
-    faellig_ab = time.perf_counter()
-    while not stop_event.is_set():
-        teiler = PRESCALERS_T2.get(tccr2.value & 0x07, 0)
-        aktiv = bool(timsk.value & (1 << 7))          # OCIE2
-        if not teiler or not aktiv:
-            faellig_ab = time.perf_counter()
-            if stop_event.wait(timeout=0.05):
-                break
+    try:
+        timsk = ctypes.c_uint8.in_dll(lib, "TIMSK_reg")
+    except (ValueError, OSError):
+        return
+    for t in TIMER8.values():
+        try:
+            tccr = ctypes.c_uint8.in_dll(lib, t["tccr"])
+            ocr = ctypes.c_uint8.in_dll(lib, t["ocr"])
+        except (ValueError, OSError):
             continue
 
-        # Nicht je Tick schlafen: Windows weckt Python nur etwa alle 15 ms,
-        # eine Ablaufsteuerung mit 100 Hz liefe dadurch rund ein Drittel zu
-        # langsam. Stattdessen grob warten und so viele Ausloesungen
-        # nachholen, wie seither faellig geworden sind. Der Durchschnitt
-        # stimmt damit genau, nur die Notengrenzen wackeln um wenige
-        # Millisekunden, und das hoert niemand.
-        periode = (ocr2.value + 1) * teiler / F_CPU_SIM
-        jetzt = time.perf_counter()
-        faellig = int((jetzt - faellig_ab) / periode) + 1
-        for _ in range(min(faellig, 64)):
-            lib.sim_call_isr(isr_name)
-        faellig_ab += faellig * periode
-        if faellig_ab < jetzt - 0.25:                 # zu weit hinterher
-            faellig_ab = jetzt
-        if stop_event.wait(timeout=min(0.004, periode)):
-            break
+        def periode_comp(t=t, tccr=tccr, ocr=ocr):
+            teiler = t["teiler"].get(tccr.value & 0x07, 0)
+            if not teiler or not (timsk.value & (1 << t["ocie"])):
+                return None
+            schritte = (ocr.value + 1) if tccr.value & (1 << 3) else 256
+            return schritte * teiler / F_CPU_SIM
+
+        def periode_ovf(t=t, tccr=tccr):
+            teiler = t["teiler"].get(tccr.value & 0x07, 0)
+            if not teiler or not (timsk.value & (1 << t["toie"])) or tccr.value & (1 << 3):
+                return None
+            return 256 * teiler / F_CPU_SIM
+
+        for periode_fn, name in ((periode_comp, t["comp"]), (periode_ovf, t["ovf"])):
+            threading.Thread(target=_takt,
+                             args=(stop_event, periode_fn,
+                                   lambda name=name: lib.sim_call_isr(name)),
+                             daemon=True).start()
 
 
 def _rechteck(f, rate=TON_RATE, kanaele=1, lautstaerke=5000):
@@ -631,6 +698,31 @@ def _rechteck(f, rate=TON_RATE, kanaele=1, lautstaerke=5000):
     tief = struct.pack('<h', -lautstaerke) * kanaele
     halb = periode // 2
     return (hoch * halb + tief * (periode - halb)) * perioden
+
+
+def adc_thread(lib, stop_event):
+    """Bedient den ADC im Interruptbetrieb und im Freilauf.
+
+    Eine abgefragte Einzelwandlung erledigt sim_api.c selbst beim naechsten
+    Lesen. Mit ADIE dagegen wartet das Programm auf ADC_vect; diesen Aufruf
+    loest sim_adc_poll() aus, sobald eine Wandlung gestartet ist.
+    """
+    try:
+        poll = lib.sim_adc_poll
+    except AttributeError:
+        return                                   # DLL ohne ADC-Nachbildung
+    poll.argtypes = []
+    poll.restype = None
+    while not stop_event.wait(timeout=0.001):
+        poll()
+
+
+def poti_setzen(lib, wert):
+    """Uebertraegt die Stellung des Potis in die DLL."""
+    try:
+        ctypes.c_uint16.in_dll(lib, "sim_poti").value = wert
+    except (ValueError, OSError):
+        pass
 
 
 def ton_thread(lib, stop_event):
@@ -689,8 +781,16 @@ def ton_thread(lib, stop_event):
 # Pygame renderer
 # ---------------------------------------------------------------------------
 OLED_W, OLED_H = 128, 64
-PANEL_H        = 70
+PANEL_OBEN     = 70             # Hoehe der Zeile mit LEDs, RESET und Tastern
+POTI_ZEILE     = 26             # darunter die Zeile mit dem Poti
+PANEL_H        = PANEL_OBEN + POTI_ZEILE
 OLED_BORDER    = 4              # Randbreite in Screen-Pixeln (ausserhalb der OLED-Flaeche)
+
+# Poti der MEGACARD an ADC5, Wertebereich des 10-Bit-Wandlers
+POTI_MAX       = 1023
+POTI_SCHRITT   = 16             # je Rastung des Mausrads
+POTI_TASTE     = 8              # je Bild, solange + oder - gehalten wird
+COL_POTI       = (230, 180, 40)
 
 COL_BORDER     = (30, 80, 220)  # blauer Rand um das OLED-Display
 COL_BG         = (5,  12,  5)   # Bereich ausserhalb der Zeichenflaeche
@@ -762,14 +862,27 @@ def render_oled(surf, fb, scale, draw_rect=None):
                         col_px = COL_PIXEL_ON
                     surf.fill(col_px, (px * scale, py * scale, scale, scale))
 
-def render_panel(surf, pina_val, portc_val, ddrc_val, fps, project_name, scale, panel_w):
+def poti_rechteck(panel_w):
+    """Flaeche des Poti-Balkens im Panel, in Panel-Koordinaten."""
+    return pygame.Rect(96, PANEL_OBEN + 6, panel_w - 96 - 10, POTI_ZEILE - 12)
+
+
+def poti_aus_x(x, panel_w):
+    """Poti-Stellung fuer eine Mausposition auf dem Balken."""
+    r = poti_rechteck(panel_w)
+    anteil = (x - r.x) / max(1, r.w - 1)
+    return max(0, min(POTI_MAX, round(anteil * POTI_MAX)))
+
+
+def render_panel(surf, pina_val, portc_val, ddrc_val, fps, project_name, scale, panel_w,
+                 poti=0):
     surf.fill(COL_PANEL)
     font_sm = pygame.font.SysFont("consolas", 11)
     font_md = pygame.font.SysFont("consolas", 13, bold=True)
 
     # ---- LEDs (PORTC bits 0-7) ----
     led_r  = 10
-    led_y  = PANEL_H // 2
+    led_y  = PANEL_OBEN // 2
     led_x0 = 10
     for i in range(8):
         cx   = led_x0 + (7 - i) * (led_r * 2 + 6)   # L7 links, L0 rechts
@@ -786,10 +899,10 @@ def render_panel(surf, pina_val, portc_val, ddrc_val, fps, project_name, scale, 
         surf.blit(lbl, (cx - lbl.get_width() // 2, led_y + led_r + 1))
 
     # ---- Buttons S3-S0 (S3 links, S0 rechts) ----
-    btn_labels = ["S3\n4/↓", "S2\n3/↑", "S1\n2/→", "S0\n1/←"]
+    btn_labels = ["S3\n4/↑", "S2\n3/↓", "S1\n2/←", "S0\n1/→"]
     btn_w, btn_h = 44, 28
     btn_x0 = panel_w - 4 * (btn_w + 4) - 4
-    btn_y0 = (PANEL_H - btn_h) // 2
+    btn_y0 = (PANEL_OBEN - btn_h) // 2
     for i, lbl in enumerate(btn_labels):
         pressed = not bool(pina_val & (1 << (3 - i)))
         col     = COL_BTN_ON if pressed else COL_BTN_OFF
@@ -803,7 +916,7 @@ def render_panel(surf, pina_val, portc_val, ddrc_val, fps, project_name, scale, 
     # ---- Reset-Button (Mitte) ----
     rst_w, rst_h = 60, 22
     rst_x = panel_w // 2 - rst_w // 2
-    rst_y = (PANEL_H - rst_h) // 2
+    rst_y = (PANEL_OBEN - rst_h) // 2
     reset_rect = pygame.Rect(rst_x, rst_y, rst_w, rst_h)
     pygame.draw.rect(surf, COL_RESET_BTN, reset_rect, border_radius=4)
     rst_lbl = font_md.render("RESET", True, (255, 255, 255))
@@ -813,6 +926,18 @@ def render_panel(surf, pina_val, portc_val, ddrc_val, fps, project_name, scale, 
     # ---- FPS + project name ----
     info = font_md.render(f"{project_name}   {fps:.1f} fps", True, COL_TEXT)
     surf.blit(info, (panel_w // 2 - info.get_width() // 2, 4))
+
+    # ---- Poti an ADC5: Mausrad, + / -, oder auf den Balken klicken ----
+    r = poti_rechteck(panel_w)
+    lbl = font_sm.render(f"Poti ADC5 {poti:4d}", True, COL_TEXT)
+    surf.blit(lbl, (8, r.y + (r.h - lbl.get_height()) // 2))
+    pygame.draw.rect(surf, COL_BTN_OFF, r, border_radius=3)
+    fuellung = r.copy()
+    fuellung.w = round(r.w * poti / POTI_MAX)
+    if fuellung.w > 0:
+        pygame.draw.rect(surf, COL_POTI, fuellung, border_radius=3)
+    hilfe = font_sm.render("Mausrad  + -", True, (110, 110, 110))
+    surf.blit(hilfe, (r.right - hilfe.get_width() - 4, r.y + (r.h - hilfe.get_height()) // 2))
 
     return reset_rect
 
@@ -830,6 +955,12 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
     clock    = pygame.time.Clock()
     fps_disp = game_fps
     reset_rect_abs = None
+    panel_top = OLED_H * scale + 2 * OLED_BORDER
+
+    # Poti: Stellung bleibt ueber einen Reset erhalten, wie auf der Platine
+    poti = (POTI_MAX + 1) // 2
+    poti_ziehen = False
+    poti_setzen(lib, poti)
 
     # C main() starten
     t_main = threading.Thread(target=lib.main, daemon=True)
@@ -843,10 +974,9 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
         args=(lib, ocr1a, tccr1b, game_fps, frame_event, stop_isr),
         daemon=True,
     ).start()
-    if tccr2 is not None:
-        threading.Thread(target=isr_thread_t2,
-                         args=(lib, tccr2, ocr2r, timsk, stop_isr), daemon=True).start()
+    timer8_threads_starten(lib, stop_isr)
     threading.Thread(target=ton_thread, args=(lib, stop_isr), daemon=True).start()
+    threading.Thread(target=adc_thread, args=(lib, stop_isr), daemon=True).start()
 
     # Ohne Timer1-ISR (z.B. Selftest, reine Polling-Programme) kommt nie ein
     # frame_event. Deshalb hoechstens 1/fps warten, sonst laufen Anzeige und
@@ -886,6 +1016,23 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 if reset_rect_abs and reset_rect_abs.collidepoint(ev.pos):
                     do_reset = True
+                if poti_rechteck(panel_w).move(0, panel_top).collidepoint(ev.pos):
+                    poti_ziehen = True
+                    poti = poti_aus_x(ev.pos[0], panel_w)
+            if ev.type == pygame.MOUSEBUTTONUP and ev.button == 1:
+                poti_ziehen = False
+            if ev.type == pygame.MOUSEMOTION and poti_ziehen:
+                poti = poti_aus_x(ev.pos[0], panel_w)
+            if ev.type == pygame.MOUSEWHEEL:
+                poti = max(0, min(POTI_MAX, poti + ev.y * POTI_SCHRITT))
+
+        # Poti mit gehaltenem + oder - (Haupt- und Ziffernblock)
+        gedrueckt = pygame.key.get_pressed()
+        if gedrueckt[pygame.K_PLUS] or gedrueckt[pygame.K_KP_PLUS]:
+            poti = min(POTI_MAX, poti + POTI_TASTE)
+        if gedrueckt[pygame.K_MINUS] or gedrueckt[pygame.K_KP_MINUS]:
+            poti = max(0, poti - POTI_TASTE)
+        poti_setzen(lib, poti)
 
         if do_reset:
             # Reset:
@@ -926,6 +1073,7 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
                 lib.display_draw_sprite_reset()
                 lib.sim_soft_reset()
             pina.value = 0xFF
+            poti_setzen(lib, poti)
             _reported_outside.clear()
             # 4. Neue Threads starten
             frame_event = threading.Event()
@@ -938,10 +1086,9 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
                 args=(lib, ocr1a, tccr1b, game_fps, frame_event, stop_isr),
                 daemon=True,
             ).start()
-            if tccr2 is not None:
-                threading.Thread(target=isr_thread_t2,
-                                 args=(lib, tccr2, ocr2r, timsk, stop_isr), daemon=True).start()
+            timer8_threads_starten(lib, stop_isr)
             threading.Thread(target=ton_thread, args=(lib, stop_isr), daemon=True).start()
+            threading.Thread(target=adc_thread, args=(lib, stop_isr), daemon=True).start()
             fps_disp = game_fps
             continue
 
@@ -953,10 +1100,10 @@ def run_pygame(lib, fb, pina, ddra, porta, portc, ddrc, ocr1a, tccr1b,
             last_rect = draw_rect
         render_oled(oled_surf, fb, scale, draw_rect)
         panel_reset_rect = render_panel(
-            panel_surf, pina.value, portc.value, ddrc.value, fps_disp, project_name, scale, panel_w
+            panel_surf, pina.value, portc.value, ddrc.value, fps_disp, project_name, scale, panel_w,
+            poti=poti
         )
         oled_top = OLED_BORDER
-        panel_top = OLED_H * scale + 2 * OLED_BORDER
         reset_rect_abs = panel_reset_rect.move(0, panel_top)
 
         # Rand als Hintergrundfarbe (OLED liegt INNEN, ueberdeckt den Rand nicht)

@@ -25,12 +25,76 @@ volatile uint8_t  PINC_reg  = 0,    DDRC_reg  = 0, PORTC_reg = 0;
 volatile uint8_t  PIND_reg  = 0,    DDRD_reg  = 0, PORTD_reg = 0;
 volatile uint8_t  TCCR0_reg  = 0,   OCR0_reg   = 0,   TCNT0_reg  = 0;
 volatile uint8_t  TCCR1A_reg = 0,   TCCR1B_reg = 0;
-volatile uint16_t OCR1A_reg  = 0;
+volatile uint16_t OCR1A_reg  = 0,   OCR1B_reg  = 0,   TCNT1_reg  = 0;
 volatile uint8_t  TCCR2_reg  = 0,   OCR2_reg   = 0;
 volatile uint8_t  TIMSK_reg  = 0,   TIFR_reg   = 0;
 volatile uint8_t  ADMUX_reg  = 0,   ADCSRA_reg = 0;
 volatile uint16_t ADCW_reg   = 0;
 volatile uint8_t  ADCH_reg   = 0,   ADCL_reg   = 0;
+
+/* ---- ADC ----
+   Nachgebildet wird eine Wandlung auf Knopfdruck: wird ADSC gesetzt, liegt
+   das Ergebnis beim naechsten Zugriff auf ADCSRA oder das Datenregister
+   bereit. Die Wandlungszeit von rund 100 us entfaellt. Am Kanal 5 haengt
+   das Poti der MEGACARD, sein Wert kommt aus sim.py (sim_poti). Die
+   uebrigen Kanaele liefern 0, wie ein auf Masse gelegter Eingang.
+
+   Mit ADIE uebernimmt sim_adc_poll() die Wandlung und ruft ADC_vect auf.
+   sim.py ruft die Funktion laufend auf, das ergibt eine Verzoegerung von
+   wenigen Millisekunden. Im Freilauf (ADATE) wird ebenso fortlaufend neu
+   gewandelt. */
+volatile uint16_t sim_poti = 512;
+
+#define _ADC_KANAL_POTI 5
+
+static void _adc_wandeln(void)
+{
+    const uint8_t  kanal = ADMUX_reg & 0x1F;
+    const uint16_t wert  = (kanal == _ADC_KANAL_POTI) ? (sim_poti & 0x3FF) : 0;
+
+    if (ADMUX_reg & (1 << 5))                 /* ADLAR: linksbuendig */
+    {
+        ADCW_reg = (uint16_t)(wert << 6);
+    }
+    else
+    {
+        ADCW_reg = wert;
+    }
+    ADCH_reg = (uint8_t)(ADCW_reg >> 8);
+    ADCL_reg = (uint8_t)(ADCW_reg & 0xFF);
+
+    if (!(ADCSRA_reg & (1 << 5)))             /* ohne ADATE endet die Wandlung */
+    {
+        ADCSRA_reg &= (uint8_t)~(1 << 6);     /* ADSC */
+    }
+    ADCSRA_reg |= (1 << 4);                   /* ADIF */
+}
+
+/* Wandlung fuer das Abfragen ohne Interrupt: laeuft eine, ist sie jetzt fertig */
+static void _adc_abfrage(void)
+{
+    const uint8_t s = ADCSRA_reg;
+    if ((s & (1 << 7)) && (s & (1 << 6)) && !(s & (1 << 3)))   /* ADEN, ADSC, kein ADIE */
+    {
+        _adc_wandeln();
+    }
+}
+
+volatile uint8_t  *sim_adcsra(void) { _adc_abfrage(); return &ADCSRA_reg; }
+volatile uint16_t *sim_adcw(void)   { _adc_abfrage(); return &ADCW_reg; }
+volatile uint8_t  *sim_adch(void)   { _adc_abfrage(); return &ADCH_reg; }
+volatile uint8_t  *sim_adcl(void)   { _adc_abfrage(); return &ADCL_reg; }
+
+void sim_adc_poll(void)
+{
+    const uint8_t s = ADCSRA_reg;
+    if ((s & (1 << 7)) && (s & (1 << 6)) && (s & (1 << 3)))    /* ADEN, ADSC, ADIE */
+    {
+        _adc_wandeln();
+        ADCSRA_reg &= (uint8_t)~(1 << 4);     /* ADIF loescht die Hardware beim Einsprung */
+        sim_call_isr("ADC_vect");
+    }
+}
 
 /* ---- EEPROM ----
    Die Zeiger, die das Programm uebergibt, sind auf dem AVR schlichte
@@ -82,6 +146,27 @@ void eeprom_update_byte(uint8_t *addr, uint8_t value)
 void eeprom_update_word(uint16_t *addr, uint16_t value)
 {
     if (eeprom_read_word(addr) != value) eeprom_write_word(addr, value);
+}
+
+void eeprom_read_block(void *ziel, const void *addr, size_t anzahl)
+{
+    uint16_t i = _ee_index(addr);
+    for (size_t n = 0; n < anzahl; n++)
+        ((uint8_t *)ziel)[n] = sim_eeprom[(i + n) & (SIM_EEPROM_SIZE - 1)];
+}
+
+void eeprom_write_block(const void *quelle, void *addr, size_t anzahl)
+{
+    uint16_t i = _ee_index(addr);
+    for (size_t n = 0; n < anzahl; n++)
+        sim_eeprom[(i + n) & (SIM_EEPROM_SIZE - 1)] = ((const uint8_t *)quelle)[n];
+}
+
+void eeprom_update_block(const void *quelle, void *addr, size_t anzahl)
+{
+    /* Das Ergebnis ist dasselbe wie beim Schreiben. update schont auf der
+       Hardware die Zellen, eine Abnutzung gibt es hier nicht. */
+    eeprom_write_block(quelle, addr, anzahl);
 }
 
 /* ---- ISR registry ---- */
@@ -170,7 +255,7 @@ void sim_soft_reset(void)
     PINC_reg   = 0;    DDRC_reg   = 0;    PORTC_reg  = 0;
     PIND_reg   = 0;    DDRD_reg   = 0;    PORTD_reg  = 0;
     TCCR0_reg  = 0;    OCR0_reg   = 0;    TCNT0_reg  = 0;
-    TCCR1A_reg = 0;    TCCR1B_reg = 0;    OCR1A_reg  = 0;
+    TCCR1A_reg = 0;    TCCR1B_reg = 0;    OCR1A_reg  = 0;    OCR1B_reg = 0;    TCNT1_reg = 0;
     TCCR2_reg  = 0;    OCR2_reg   = 0;
     TIMSK_reg  = 0;    TIFR_reg   = 0;
     ADMUX_reg  = 0;    ADCSRA_reg = 0;    ADCW_reg   = 0;

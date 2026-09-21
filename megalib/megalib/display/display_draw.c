@@ -10,6 +10,8 @@
 | Aenderung:    Interne Helfer dokumentiert, Kommentare vereinheitlicht
 \*-------------------------------------------------------------------------*/
 #include <avr/io.h>
+#include <stdarg.h>   // va_list fuer display_draw_printf()
+#include <stdio.h>    // vsnprintf()
 #include <stdlib.h>   // abs() fuer den Bresenham-Algorithmus
 #include <stdbool.h>
 #include <string.h>
@@ -816,4 +818,64 @@ void display_draw_string(uint8_t x, uint8_t y, const char* s, FontSize_t size)
 void display_draw_string_P(uint8_t x, uint8_t y, PGM_P s, FontSize_t size)
 {
 	_display_draw_string(x, y, s, size, true, true);
+}
+
+
+void display_draw_zahl(uint8_t x, uint8_t y, uint16_t wert, FontSize_t size)
+{
+	// Rueckwaerts in den Puffer schreiben: die letzte Ziffer steht rechts.
+	// 65535 sind fuenf Ziffern, dazu die abschliessende Null.
+	char puffer[6];
+	uint8_t i = sizeof puffer - 1;
+
+	puffer[i] = '\0';
+	do
+	{
+		puffer[--i] = (char)('0' + (wert % 10));
+		wert /= 10;
+	} while (wert > 0);
+
+	display_draw_string(x, y, &puffer[i], size);
+}
+
+
+void display_draw_binaer(uint8_t x, uint8_t y, uint8_t wert, FontSize_t size)
+{
+	char puffer[9];
+
+	// Bit 7 steht links: die Maske wandert von 0x80 nach 0x01
+	for (uint8_t i = 0; i < 8; i++)
+	{
+		puffer[i] = (wert & (uint8_t)(0x80u >> i)) ? '1' : '0';
+	}
+	puffer[8] = '\0';
+
+	display_draw_string(x, y, puffer, size);
+}
+
+
+void display_draw_printf(uint8_t x, uint8_t y, FontSize_t size, const char *format, ...)
+{
+	// Der Puffer liegt auf dem Stack und ist nach dem Aufruf wieder frei.
+	char puffer[DISPLAY_DRAW_TEXT_MAX];
+	va_list argumente;
+
+	va_start(argumente, format);
+	vsnprintf(puffer, sizeof puffer, format, argumente);
+	va_end(argumente);
+
+	display_draw_string(x, y, puffer, size);
+}
+
+
+void display_draw_printf_P(uint8_t x, uint8_t y, FontSize_t size, PGM_P format, ...)
+{
+	char puffer[DISPLAY_DRAW_TEXT_MAX];
+	va_list argumente;
+
+	va_start(argumente, format);
+	vsnprintf_P(puffer, sizeof puffer, format, argumente);
+	va_end(argumente);
+
+	display_draw_string(x, y, puffer, size);
 }

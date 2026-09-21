@@ -120,8 +120,9 @@ Beim allerersten Start richtet megasim seinen eingebauten C-Compiler ein. Das da
 | Pfeil rechts, links, unten, oben | S0, S1, S2, S3 (wie auf der Platine angeordnet) |
 | `R` oder Knopf RESET | Neustart, wie der Reset-Taster |
 | `Q` oder `Esc` | Beenden |
+| Mausrad, `+` / `-`, Klick auf den Poti-Balken | Poti an ADC5 verstellen |
 
-Unter der Anzeige zeigt das Fenster die LEDs an `PORTC`, die Taster und die Bildrate.
+Unter der Anzeige zeigt das Fenster die LEDs an `PORTC`, die Taster, die Bildrate und darunter die Stellung des Potis.
 
 ### Was der Simulator anzeigt
 
@@ -130,11 +131,15 @@ Unter der Anzeige zeigt das Fenster die LEDs an `PORTC`, die Taster und die Bild
 - **LEDs:** Hellrot heißt eingeschaltet und als Ausgang konfiguriert. Dunkelrot heißt, der Pin ist Eingang mit Pull-up; auf der Platine würde die LED dann nur schwach leuchten.
 - **Ton:** Der Piezo ist über die Lautsprecher des PCs zu hören.
 - **EEPROM:** Der Inhalt bleibt erhalten und liegt im Projektordner in `megacard.eep`.
+- **ADC:** Kanal 5 liefert die Stellung des Potis, die übrigen Kanäle 0. Einzelwandlung, Interrupt `ADC_vect` und Freilauf werden nachgebildet.
+- **Timer:** Compare- und Überlauf-Interrupts von Timer0 und Timer2 sowie `TIMER1_COMPA_vect` und `TIMER1_COMPB_vect` kommen im Mittel im richtigen Takt, auch bei 1 ms.
 
 ### Grenzen
 
-- Es ist nur das erlaubt, was es auch auf dem AVR gibt. `#include <windows.h>` oder `<conio.h>` meldet einen Fehler, genau wie beim Bauen für die Platine.
-- Zeitverhalten wie Pausen und Timerfrequenzen ist nachgebildet, aber nicht taktgenau.
+- Es ist nur das erlaubt, was es auch auf dem AVR gibt. `#include <windows.h>` oder `<conio.h>` meldet einen Fehler, genau wie beim Bauen für die Platine. Ebenso verlangt `_delay_ms()` wie beim AVR einen konstanten Wert.
+- Zeitverhalten wie Pausen und Timerfrequenzen ist nachgebildet, aber nicht taktgenau. Windows weckt den Simulator nur etwa alle 15 ms; schnelle Timer-Interrupts kommen deshalb gebündelt, im Mittel aber richtig.
+- Nicht nachgebildet sind externe Interrupts (INT0 bis INT2), UART und SPI. Programme damit bauen im Simulator nicht.
+- PWM auf den LEDs ist nur als Flackern zu sehen, die Helligkeit erst auf der Platine.
 - Klangeigenheiten des echten Piezos sind nicht zu hören, etwa ein Pfeifen bei bestimmten Frequenzen.
 
 ### Aufruf ohne Microchip Studio
@@ -188,6 +193,19 @@ Wichtig:
 - **Zeichnen allein ändert die Anzeige nicht.** Erst `display_draw_show()` überträgt die Änderungen.
 - Zu jeder Zeichenfunktion gibt es ein Gegenstück zum Löschen, zum Beispiel `display_clear_rect`.
 - Texte aus dem Flash stehen in `PSTR("...")` und werden mit den Funktionen mit `_P` am Ende ausgegeben.
+
+### Text und Zahlen
+
+| Funktion | wofür | Flash |
+|---|---|---|
+| `display_draw_string_P(x, y, PSTR("TEXT"), groesse)` | fester Text aus dem Flash | – |
+| `display_draw_string(x, y, text, groesse)` | Text aus dem RAM | – |
+| `display_draw_zahl(x, y, wert, groesse)` | eine Zahl von 0 bis 65535 | + 0,15 KB |
+| `display_draw_binaer(x, y, wert, groesse)` | ein Byte als acht Nullen und Einsen | + 0,2 KB |
+| `display_draw_printf_P(x, y, groesse, PSTR("PUNKTE %u"), punkte)` | Text und Werte gemischt | + 1,6 KB |
+| `display_draw_printf(x, y, groesse, format, ...)` | dasselbe, Format aus dem RAM | + 1,6 KB |
+
+Die Angaben gelten nur für Programme, die die Funktion auch verwenden; ungenutzte wirft der Linker hinaus. `display_draw_printf` legt seinen Zwischenpuffer auf dem Stack an (`DISPLAY_DRAW_TEXT_MAX`, Vorgabe 24 Zeichen) und schneidet längere Ausgaben ab. Fließkommaformate wie `%f` sind in der Standardeinstellung von Microchip Studio nicht enthalten.
 
 ### Bitmaps
 
@@ -252,8 +270,13 @@ Melodien erzeugt man mit megasound, siehe [Abschnitt 5](#5-megasound-melodien-au
 | Bildtakt Sprites | Timer1 | `display_draw_sprite.c` |
 | Taster S0–S3 | PA0–PA3, gedrückt = 0 | eigenes Programm |
 | LEDs | PORTC | eigenes Programm |
+| Poti | PA5 / ADC5, Jumper X14 „VANA_on“ | eigenes Programm |
 
 Wer Ton oder Sprites nutzt, darf die jeweiligen Timer nicht selbst verwenden. `sound_init()` und `display_draw_sprite_init()` schalten die Interrupts ein.
+
+**Interrupt-Vektoren:** Die Interrupt-Routinen `TIMER1_COMPA_vect` (Sprites) und `TIMER2_COMP_vect` (Ton) stehen in **jedem** Projekt aus dem Template, auch wenn Ton und Sprites gar nicht verwendet werden: Jede `.c`-Datei des Projekts wird mitgelinkt. Eine eigene `ISR` mit demselben Namen ergibt den Linkerfehler `multiple definition of '__vector_…'`. Frei sind zum Beispiel `TIMER1_COMPB_vect` (Timer1 im CTC-Modus bis `OCR1A`, Interrupt über `OCR1B`, wenn keine Sprites laufen) und `TIMER0_COMP_vect` (wenn kein Ton läuft).
+
+Nach `random_init()` ist der ADC für das Rauschen umgestellt. Wer das Poti liest, initialisiert den ADC erst **danach**.
 
 ---
 
