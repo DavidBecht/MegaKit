@@ -38,6 +38,12 @@
 # ---- template: ZIP von build_template.py ----
 /template/dist/
 
+# ---- docs: erzeugte Webseite ----
+# build_docs.py baut sie aus den Headern neu, der Workflow ebenso.
+# Die Beispielbilder in docs/bilder/ bleiben versioniert: Sie brauchen
+# Windows und den Simulator und koennen auf GitHub nicht entstehen.
+/docs/site/
+
 # Bewusst NICHT ignoriert (kein Build-Output, sondern mitgeliefertes Werkzeug):
 #   megasim/gcc_minimal/  - ausgeduennte GCC, die build.py in die exe packt
 

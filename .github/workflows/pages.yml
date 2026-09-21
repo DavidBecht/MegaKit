@@ -1,0 +1,89 @@
+# Baut die Doku-Seite der megalib und veroeffentlicht sie auf GitHub Pages.
+#
+# Ergebnis: https://davidbecht.github.io/MegaKit/
+#
+# Ausloeser:
+#   - Push auf main, wenn sich die Bibliothek oder docs/ geaendert haben
+#   - Tag vX.Y.Z  -> dieselbe Seite, im Kopf steht dann die Version
+#   - Pull Request -> nur bauen, nicht veroeffentlichen
+#   - Actions -> "Doku-Seite" -> Run workflow
+#
+# Einmalig einzurichten: Settings -> Pages -> Source: "GitHub Actions".
+#
+# Die Beispielbilder liegen fertig im Repository (docs/bilder/). Sie werden
+# unter Windows mit dem Simulator erzeugt:  python docs/build_docs.py --bilder
+
+name: Doku-Seite
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "megalib/megalib/**"
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    paths:
+      - "megalib/megalib/**"
+      - "docs/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Zwei Laeufe gleichzeitig wuerden sich beim Veroeffentlichen in die Quere
+# kommen. Der neuere gewinnt, der aeltere wird abgebrochen.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # fuer die Versionsangabe aus dem letzten Tag
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: avr-gcc
+        run: sudo apt-get update && sudo apt-get install -y gcc-avr avr-libc binutils-avr
+      - name: Version bestimmen
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "wert=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            letzter=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            echo "wert=${letzter:-Entwicklungsstand}" >> "$GITHUB_OUTPUT"
+          fi
+      # --pruefen uebersetzt jedes Beispiel der Seite mit avr-gcc fuer den
+      # ATmega16. Schlaegt eines fehl, wird nichts veroeffentlicht.
+      - name: Seite bauen und Beispiele uebersetzen
+        run: python docs/build_docs.py --version "${{ steps.version.outputs.wert }}" --pruefen
+      - name: Vollstaendigkeit melden
+        run: |
+          bilder=$(ls docs/bilder/*.png 2>/dev/null | wc -l)
+          echo "### Doku-Seite gebaut" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "* Version: ${{ steps.version.outputs.wert }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "* Beispielbilder: $bilder" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/site
+
+  veroeffentlichen:
+    if: github.event_name != 'pull_request'
+    needs: bauen
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - id: pages
+        uses: actions/deploy-pages@v4

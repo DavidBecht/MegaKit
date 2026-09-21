@@ -16,6 +16,9 @@ Die fertigen Programme gibt es unter **[Releases](../../releases)**:
 
 Wer nur damit arbeiten will, braucht nichts selbst zu bauen.
 
+**Alle Funktionen der megalib mit Beispielen und Bildern:
+[davidbecht.github.io/MegaKit](https://davidbecht.github.io/MegaKit/)**
+
 ---
 
 ## Inhalt
@@ -166,6 +169,28 @@ Die Bibliothek besteht aus Schichten, die jeweils für sich nutzbar sind:
 | `display/random.c` | Zufallszahlen |
 
 Die genaue Beschreibung jeder Funktion steht in der jeweiligen `.h`-Datei.
+
+### Die Funktionsübersicht im Netz
+
+Dieselben Beschreibungen gibt es als Webseite, nach Themen sortiert und mit
+Beispielen:
+
+**[davidbecht.github.io/MegaKit](https://davidbecht.github.io/MegaKit/)**
+
+| Reiter | Inhalt |
+|---|---|
+| **Start** | Wann `display.h`, wann `display_draw.h`, und woran man denken muss |
+| **Außerhalb** | `display.h`: Text in Zeilen und Spalten auf dem ganzen Display |
+| **Innerhalb** | `display_draw.h`: Pixel, Linien, Bilder und Schrift im Zeichenfenster |
+| **Sprites** | `display_draw_sprite.h`: bewegte Bilder |
+| **Ton** | `sound.h`: Töne und Melodien |
+| **Zufall** | `random.h` |
+
+Neben jedem Beispiel steht das Bild, das es auf dem Display erzeugt. Diese
+Bilder sind nicht gezeichnet, sondern aufgenommen: Das Beispiel wird
+übersetzt, im Simulator ausgeführt und sein Bildspeicher gespeichert. Die
+Texte selbst stammen aus den Kommentaren in den `.h`-Dateien, die Seite kann
+also nicht veralten. Die Suche oben (Taste `/`) findet jede Funktion.
 
 ### Zeichnen
 
@@ -382,6 +407,37 @@ python template/build_template.py --version 1.2.0 --pruefen
 
 Das Skript nimmt die Bibliothek aus `megalib/megalib/`, die Startdatei `template/main.c` und die Compiler-Einstellungen aus `megalib/MegaLib.cproj`. Mit `--pruefen` wird das fertige Template zusätzlich mit `avr-gcc` für den ATmega16 übersetzt.
 
+### Doku-Seite
+
+```
+python docs/build_docs.py                    # Seite nach docs/site/ bauen
+python docs/build_docs.py --pruefen          # jedes Beispiel mit avr-gcc uebersetzen
+python docs/build_docs.py --bilder           # Bilder der Beispiele neu aufnehmen
+python docs/build_docs.py --bilder display_draw_rect   # nur eines davon
+```
+
+`docs/site/index.html` lässt sich direkt im Browser öffnen, auch ohne Server.
+Auf GitHub baut der Workflow `pages.yml` die Seite bei jeder Änderung an der
+Bibliothek neu und veröffentlicht sie.
+
+**Neue Funktion in der Bibliothek?** Der Kommentarblock im Header genügt, sie
+erscheint dann von selbst. Nur eintragen, in welchen Abschnitt sie gehört:
+`docs/inhalt.py`. Fehlt der Eintrag, bricht der Bau mit einer Meldung ab —
+so bleibt keine Funktion unerwähnt.
+
+**Neues Beispiel?** Eine `.c`-Datei nach `docs/beispiele/` legen, mit drei
+Zeilen im Kopf:
+
+```c
+// beispiel: display_draw_rect      Eintrag oder Abschnitt, wo es hingehoert
+// titel: Rahmen und Fuellung
+// bild: 1.2s                       Zeitpunkt der Aufnahme, weglassen = kein Bild
+```
+
+Danach `--bilder` laufen lassen (braucht Windows und den Simulator) und die
+neue PNG-Datei mit einchecken. `--pruefen` übersetzt jedes Beispiel für den
+ATmega16, ein Beispiel mit Fehler fällt also auf.
+
 ### megalib und Demos
 
 `megalib/MegaLib.atsln` in Microchip Studio öffnen. In `megalib/main.c` wählt die Zeile `#define PROGRAMM` eine der Demos:
@@ -460,6 +516,13 @@ megasound/
 template/
   main.c                   Startdatei des Templates
   build_template.py        baut das Template-ZIP
+docs/                      Doku-Seite (GitHub Pages)
+  build_docs.py            baut die Seite
+  kopf_lesen.py            liest die Kommentarbloecke der Header
+  inhalt.py                Reiter, Abschnitte, Einleitungen
+  vorlage.py               Geruest, Aussehen, Verhalten der Seite
+  beispiele/               Beispielprogramme
+  bilder/                  deren Display-Bilder aus dem Simulator
 release.py                 Version erhoehen und Release anstossen
 .github/workflows/         Build und Release auf GitHub
 ```
