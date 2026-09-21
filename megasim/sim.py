@@ -32,7 +32,7 @@ import pygame
 
 # Versionsnummer nach dem Schema MAJOR.MINOR.PATCH. Einzige Quelle: build.py
 # liest sie von hier und setzt sie mit --bump herauf.
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 # ---------------------------------------------------------------------------
 # Paths — works both in development (plain Python) and frozen (PyInstaller)
