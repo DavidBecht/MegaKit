@@ -468,13 +468,28 @@ python release.py minor      # 1.0.1 -> 1.1.0
 python release.py major      # 1.1.0 -> 2.0.0
 python release.py 1.5.0      # feste Version
 python release.py --probe    # nur pruefen und anzeigen
+python release.py --unsauber # auch mit offenen Aenderungen
 ```
 
 Das Skript
-1. bricht ab, wenn das Repository nicht sauber ist, also Dateien geändert oder neu sind, wenn man nicht auf `main` ist oder wenn `main` nicht auf dem Stand von GitHub ist;
+1. bricht ab, wenn man nicht auf `main` ist, wenn `main` nicht auf dem Stand von GitHub ist oder wenn versionierte Dateien geändert sind;
 2. berechnet die neue Version aus dem letzten Tag; beim ersten Release gilt die Version aus den Programmen;
-3. setzt `VERSION` in `megasim/sim.py` und `megasound/megasound.py` und committet das;
+3. setzt `VERSION` in `megasim/sim.py` und `megasound/megasound.py` und committet **nur diese beiden Dateien**, auch wenn im Index noch etwas anderes vorgemerkt ist;
 4. pusht Commit und Tag gemeinsam.
+
+### Offene Dateien im Arbeitsverzeichnis
+
+Das Release entsteht auf GitHub aus dem Tag, nicht auf dem eigenen Rechner. Was nicht committet ist, kann also gar nicht darin landen. Daraus folgt die Abstufung:
+
+| Zustand | Verhalten |
+|---|---|
+| nicht versionierte Dateien (`??`) | kein Hindernis, werden nur aufgezählt |
+| geänderte versionierte Dateien | Abbruch, mit `--unsauber` wird trotzdem released |
+| geändertes `megasim/sim.py` oder `megasound/megasound.py` | **immer** Abbruch, auch mit `--unsauber` |
+
+Die letzte Zeile ist die eine Ausnahme, die bleiben muss: Diese beiden Dateien schreibt und committet das Skript in Schritt 3 selbst. Eigene Änderungen darin liefen im Versions-Commit ungewollt mit.
+
+`--unsauber` listet auf, was liegen bleibt. Das Release enthält diese Arbeit nicht — wer sie darin haben will, committet und pusht sie vorher.
 
 Danach im Tab **Actions** zusehen. Nach etwa 10 Minuten steht das Release unter **Releases**.
 

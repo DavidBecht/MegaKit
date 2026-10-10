@@ -2,14 +2,27 @@
 release.py -- Erhoeht die Version und stoesst ein GitHub-Release an.
 
 Ablauf:
-  1. Prueft, dass das Repository sauber ist: keine geaenderten oder neuen
-     Dateien, Branch main, auf demselben Stand wie origin/main.
+  1. Prueft, dass das Repository releasefaehig ist: Branch main, auf
+     demselben Stand wie origin/main, keine offenen Aenderungen.
   2. Bestimmt die neue Version aus dem letzten Tag vX.Y.Z.
   3. Setzt VERSION in megasim/sim.py und megasound/megasound.py auf die neue
      Version und committet das, damit sich die Programme mit der Version des
      Releases melden.
   4. Legt den Tag vX.Y.Z an und pusht Commit und Tag. Der Tag startet den
      Workflow .github/workflows/release.yml, der das Release baut.
+
+Offene Dateien im Arbeitsverzeichnis:
+    Das Release entsteht auf GitHub aus dem Tag, nicht aus diesem Rechner.
+    Was hier nicht committet ist, kann also gar nicht darin landen.
+
+    Nicht versionierte Dateien sind deshalb nie ein Hindernis; sie werden
+    nur aufgezaehlt. Geaenderte versionierte Dateien halten das Skript an,
+    weil sie meist bedeuten, dass noch etwas ins Release gehoert haette;
+    mit --unsauber wird trotzdem released.
+
+    Eine Ausnahme bleibt hart: offene Aenderungen in megasim/sim.py oder
+    megasound/megasound.py. Diese beiden Dateien schreibt und committet das
+    Skript selbst, fremde Aenderungen darin liefen ungewollt mit.
 
 Verwendung:
     python release.py               # 1.2.3 -> 1.2.4; beim ersten Release die
@@ -18,6 +31,7 @@ Verwendung:
     python release.py major         # 1.2.3 -> 2.0.0
     python release.py 1.5.0         # feste Version
     python release.py --probe       # nur anzeigen, nichts aendern
+    python release.py --unsauber    # auch mit offenen Aenderungen
 """
 
 import argparse
@@ -37,23 +51,60 @@ TAG_MUSTER = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
 
 def abbruch(text):
+    sys.stdout.flush()          # sonst steht die Meldung vor dem, was schon lief
     print("[release] " + text, file=sys.stderr)
     sys.exit(1)
 
 
-def git(*argumente, pruefen=True):
+def git(*argumente, pruefen=True, roh=False):
+    """Fuehrt git aus und liefert die Ausgabe ohne umgebende Leerzeichen.
+
+    roh=True laesst sie unveraendert. Noetig bei git status --porcelain: Dort
+    steht in den ersten beiden Spalten der Zustand, und ein fuehrendes
+    Leerzeichen bedeutet "nur im Arbeitsverzeichnis geaendert".
+    """
     ergebnis = subprocess.run(["git"] + list(argumente), cwd=WURZEL,
                               capture_output=True, text=True, encoding="utf-8")
     if pruefen and ergebnis.returncode != 0:
         abbruch("git " + " ".join(argumente) + " fehlgeschlagen:\n" + ergebnis.stderr.strip())
-    return ergebnis.stdout.strip()
+    return ergebnis.stdout if roh else ergebnis.stdout.strip()
 
 
-def sauber_pruefen():
+def offene_dateien():
+    """git status, aufgeteilt in nicht versionierte und geaenderte Dateien."""
+    unversioniert, geaendert = [], []
+    for zeile in git("status", "--porcelain", roh=True).splitlines():
+        (unversioniert if zeile.startswith("??") else geaendert).append(zeile)
+    return unversioniert, geaendert
+
+
+def sauber_pruefen(unsauber_erlaubt):
     """Bricht ab, wenn das Repository nicht releasefaehig ist."""
-    offen = git("status", "--porcelain")
-    if offen:
-        abbruch("Repository ist nicht sauber. Erst committen oder verwerfen:\n" + offen)
+    unversioniert, geaendert = offene_dateien()
+
+    # Das Release baut der Workflow aus dem Tag. Was hier nicht versioniert
+    # ist, kann deshalb nicht darin landen und haelt auch nichts auf.
+    if unversioniert:
+        print("[release] Nicht versionierte Dateien, nicht Teil des Releases:")
+        for zeile in unversioniert:
+            print("          " + zeile[3:])
+
+    if geaendert:
+        # Diese beiden Dateien schreibt und committet das Skript gleich
+        # selbst. Stehen dort eigene Aenderungen, kaemen sie ungewollt mit.
+        versionsdateien = {p.replace(os.sep, "/") for p in VERSIONSDATEIEN}
+        betroffen = [z for z in geaendert if z[3:] in versionsdateien]
+        if betroffen:
+            abbruch("Offene Aenderungen in einer Versionsdatei; sie wuerden im "
+                    "Versions-Commit mitlaufen.\nErst committen oder verwerfen:\n"
+                    + "\n".join(betroffen))
+        if not unsauber_erlaubt:
+            abbruch("Repository ist nicht sauber. Erst committen, verwerfen oder "
+                    "mit --unsauber\ntrotzdem releasen:\n" + "\n".join(geaendert))
+        print("[release] --unsauber: Diese Aenderungen bleiben liegen und sind")
+        print("[release] NICHT im Release, das aus dem Tag gebaut wird:")
+        for zeile in geaendert:
+            print(f"          {zeile[:2]}  {zeile[3:]}")
 
     zweig = git("rev-parse", "--abbrev-ref", "HEAD")
     if zweig != HAUPTZWEIG:
@@ -134,9 +185,12 @@ def main():
                         help="patch (Standard), minor, major oder X.Y.Z")
     parser.add_argument("--probe", action="store_true",
                         help="nur pruefen und anzeigen, nichts aendern")
+    parser.add_argument("--unsauber", action="store_true",
+                        help="auch releasen, wenn versionierte Dateien geaendert "
+                             "sind; sie bleiben liegen und sind nicht im Release")
     argumente = parser.parse_args()
 
-    sauber_pruefen()
+    sauber_pruefen(argumente.unsauber)
     alt = letzte_version()
     if alt is None:
         # Erstes Release: ohne Angabe gilt die Version, die in den
@@ -162,11 +216,12 @@ def main():
         print("[release] --probe: nichts geaendert.")
         return
 
-    geaendert = versionen_setzen(neu)
-    if geaendert:
-        git("add", *geaendert)
-        git("commit", "--quiet", "-m", f"Version {tag[1:]}")
-        print("[release] Version gesetzt in: " + ", ".join(geaendert))
+    gesetzt = versionen_setzen(neu)
+    if gesetzt:
+        # --only committet genau diese Dateien, auch wenn im Index noch
+        # anderes vorgemerkt ist. Vorgemerktes bleibt unberuehrt liegen.
+        git("commit", "--quiet", "--only", "-m", f"Version {tag[1:]}", "--", *gesetzt)
+        print("[release] Version gesetzt in: " + ", ".join(gesetzt))
 
     git("tag", "-a", tag, "-m", f"MegaKit {tag}")
     git("push", "--quiet", "--atomic", "origin", HAUPTZWEIG, tag)
