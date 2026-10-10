@@ -73,15 +73,114 @@ leer, der Videopuffer aber noch voll, und das naechste
 <code>display_draw_show()</code> uebertraegt nur die geaenderten Spalten.
 Zum Loeschen dient <code>display_draw_clear()</code>.</p>
 
-<h3>Einbinden</h3>
+<h3>Beides zusammen verwenden</h3>
 
-<p>Die Includes werden relativ zur eigenen Datei geschrieben. Aus der
-<code>main.c</code> eines Projekts aus dem MegaLib-Template:</p>
+<p>Ein Zeichenfenster, daneben Punktestand oder Menue aus
+<code>display.h</code>: Das ist eine gute Aufteilung, denn der Text kostet
+kein zusaetzliches SRAM. Drei Dinge sind dabei zu beachten.</p>
 
-<pre class="code">#include "megalib/display/display_draw.h"
-#include "megalib/display/display_draw_sprite.h"
-#include "megalib/display/random.h"
-#include "megalib/sound/sound.h"</pre>
+<ol class="merkliste">
+<li><b>Zeichen, nicht Pixel.</b> <code>display_string_pos()</code> und
+<code>display_printf_pos()</code> zaehlen in <b>Zeichen</b>: die Spalte von 0
+bis 31 beim 3x5-Satz, die Zeile von 0 bis 7. Eine Zeile ist eine Page und
+damit 8 Pixel hoch. Faustregel fuer den 3x5-Satz: <b>Spalte mal 4 ergibt die
+Pixelposition, Zeile mal 8 ebenso.</b></li>
+<li><b>Neben das Fenster, nicht hinein.</b>
+<code>display_draw_show()</code> uebertraegt den gesamten geaenderten Bereich
+des Videopuffers und weiss nichts von Text, der am Puffer vorbei geschrieben
+wurde. Was im Fenster steht, ist beim naechsten Bild wieder weg.</li>
+<li><b>Eine ungueltige Position faellt nicht auf.</b> Eine Spalte oder Zeile
+ausserhalb des Rasters wird verworfen, der Text aber trotzdem ausgegeben:
+an der aktuellen Cursorposition, meist also bei (0, 0) und damit mitten im
+Fenster, wo ihn das naechste <code>display_draw_show()</code> zerschneidet.
+Es gibt keine Fehlermeldung.</li>
+</ol>
+
+<pre class="code">// Fenster auf der linken Haelfte, Pixel 0 bis 63
+display_draw_init(64, 64, 0, 0);
+
+display_printf_pos(70, 1, "Punkte %u", p);   // falsch: 70 waere eine Pixelspalte,
+                                             // als Zeichenspalte gibt es sie nicht
+display_printf_pos(16, 1, "Punkte %u", p);   // richtig: Spalte 16 = Pixel 64</pre>
+
+<h3>Einbinden: Ordner und Include-Pfade</h3>
+
+<p>Ein frisches Projekt aus dem MegaLib-Template sieht so aus. Die Bibliothek
+liegt vollstaendig im Projektordner; es gibt nichts zu installieren und nichts
+einzustellen:</p>
+
+<pre class="code">MeinSpiel/
+&#9500;&#9472; main.c                        &#8592; hier wird programmiert
+&#9500;&#9472; MeinSpiel.cproj
+&#9492;&#9472; megalib/
+   &#9500;&#9472; display/
+   &#9474;  &#9500;&#9472; display.h               Text ausserhalb des Zeichenfensters
+   &#9474;  &#9500;&#9472; display_draw.h          Zeichnen innerhalb des Fensters
+   &#9474;  &#9500;&#9472; display_draw_sprite.h   bewegte Bilder im Fenster
+   &#9474;  &#9500;&#9472; random.h                Zufallszahlen
+   &#9474;  &#9500;&#9472; font/                   Zeichensatz
+   &#9474;  &#9500;&#9472; twi/                    I2C-Treiber
+   &#9474;  &#9492;&#9472; animations/             fertige Bilder
+   &#9492;&#9472; sound/
+      &#9492;&#9472; sound.h                 Toene und Melodien</pre>
+
+<p>Eingebunden wird nur, was man auch aufruft. Jede Zeile entspricht genau
+einem Reiter dieser Seite:</p>
+
+<div class="vergleich">
+  <table>
+    <tr><th>Was man machen will</th><th>Reiter</th><th>Zeile in der <code>main.c</code></th></tr>
+    <tr><td>Text in Zeilen und Spalten, ohne SRAM-Bedarf</td>
+        <td>Ausserhalb</td>
+        <td><code>#include "megalib/display/display.h"</code></td></tr>
+    <tr><td>Pixel, Linien, Bilder und Schrift im Fenster</td>
+        <td>Innerhalb</td>
+        <td><code>#include "megalib/display/display_draw.h"</code></td></tr>
+    <tr><td>Bilder, die sich von selbst bewegen</td>
+        <td>Sprites</td>
+        <td><code>#include "megalib/display/display_draw_sprite.h"</code></td></tr>
+    <tr><td>Toene und Melodien am Piezo</td>
+        <td>Ton</td>
+        <td><code>#include "megalib/sound/sound.h"</code></td></tr>
+    <tr><td>Zufallszahlen fuer Wuerfel, Gegner, Hindernisse</td>
+        <td>Zufall</td>
+        <td><code>#include "megalib/display/random.h"</code></td></tr>
+  </table>
+</div>
+
+<p>Eine <code>main.c</code>, die ein Spielfeld zeichnet und den Punktestand
+daneben schreibt, beginnt also so:</p>
+
+<pre class="code">#include &lt;avr/io.h&gt;
+#include &lt;avr/pgmspace.h&gt;
+#include &lt;util/delay.h&gt;
+
+#include "megalib/display/display.h"        // Text neben dem Fenster
+#include "megalib/display/display_draw.h"   // Zeichnen im Fenster</pre>
+
+<ul class="merkliste">
+<li><b>Spitze Klammern oder Anfuehrungszeichen?</b>
+<code>&lt;avr/io.h&gt;</code> steht fuer eine Datei des Compilers,
+<code>"megalib/..."</code> fuer eine Datei des eigenen Projekts. Die megalib
+gehoert zum Projekt, also immer Anfuehrungszeichen.</li>
+<li><b>Der Pfad zaehlt ab der eigenen Datei</b>, nicht ab dem Projektordner.
+Aus der <code>main.c</code> geht es direkt nach
+<code>megalib/display/...</code>. Wer eigene Module in einem Unterordner
+anlegt, etwa <code>spiel/motor.c</code>, muss eine Ebene hinauf:
+<code>#include "../megalib/display/display_draw.h"</code>.</li>
+<li><b>Nur Header werden eingebunden, nie eine <code>.c</code>-Datei.</b>
+Microchip Studio uebersetzt und linkt jede <code>.c</code>-Datei des Projekts
+von selbst. <code>font/</code> und <code>twi/</code> braucht deshalb niemand
+einzubinden: Sie arbeiten im Hintergrund.</li>
+<li><b><code>display_draw_sprite.h</code> holt <code>display_draw.h</code>
+selbst</b> &ndash; eine Zeile genuegt fuer beides.</li>
+<li><b><code>display_draw.h</code> holt <code>display.h</code> aber nicht.</b>
+Wer im Fenster zeichnet <i>und</i> daneben Text schreibt, braucht beide Zeilen.
+Fehlt die zweite, meldet der Compiler
+<code>implicit declaration of function 'display_string_pos'</code>.
+<code>display_draw_init()</code> ruft <code>display_init()</code> trotzdem
+selbst auf; eingebunden werden muss der Header dennoch.</li>
+</ul>
 
 <h3>Woran man denken muss</h3>
 
@@ -117,6 +216,13 @@ REITER = [
              "text": "Zeichenflaeche anlegen, etwas hineinschreiben, anzeigen. "
                      "Mehr braucht es fuer das erste Bild nicht.",
              "eintraege": []},
+            {"id": "start_mischen", "titel": "Fenster und Text nebeneinander",
+             "text": "Die beiden Schichten vertragen sich, solange sie sich "
+                     "nicht denselben Platz teilen. Das Fenster rechnet in "
+                     "Pixeln, der Text daneben in Zeichen. Der Simulator faerbt "
+                     "alles orange ein, was ausserhalb der Zeichenflaeche liegt; "
+                     "auf der MEGACARD leuchtet selbstverstaendlich alles gleich.",
+             "eintraege": []},
         ],
     },
     {
@@ -124,6 +230,7 @@ REITER = [
         "titel": "Ausserhalb",
         "untertitel": "display.h &ndash; das ganze Display, Text in Zeilen und Spalten",
         "einleitung": """
+<p class="einbinden"><b>Einbinden</b> <code>#include "megalib/display/display.h"</code></p>
 <p>Diese Schicht spricht das OLED unmittelbar an. Sie kennt keine Zeichenflaeche
 und keinen Videopuffer: Jeder Aufruf geht sofort ueber den I2C-Bus zum Display.
 Das kostet kein SRAM und ist der kuerzeste Weg zu einer Textausgabe.</p>
@@ -163,6 +270,7 @@ Zeichensatz in <code>font/FontData.c</code> ab und steht in
         "titel": "Innerhalb",
         "untertitel": "display_draw.h &ndash; Pixel, Linien, Bilder und Schrift im Zeichenfenster",
         "einleitung": """
+<p class="einbinden"><b>Einbinden</b> <code>#include "megalib/display/display_draw.h"</code></p>
 <p>Hier wird pixelgenau gezeichnet, und zwar in ein <b>Fenster</b>, das das
 Programm zu Beginn festlegt. Alle Koordinaten sind Pixel und zaehlen ab der
 linken oberen Ecke dieses Fensters, nicht ab der des Displays.</p>
@@ -211,6 +319,7 @@ dann in einem Zug uebertragen.</p>
         "titel": "Sprites",
         "untertitel": "display_draw_sprite.h &ndash; bewegte Bilder im Zeichenfenster",
         "einleitung": """
+<p class="einbinden"><b>Einbinden</b> <code>#include "megalib/display/display_draw_sprite.h"</code></p>
 <p>Ein Sprite ist ein Bild, das sich von selbst bewegt und animiert. Das
 Programm beschreibt es einmal — Bilder, Ort, Geschwindigkeit — und ruft danach
 in der Hauptschleife nur noch <code>display_draw_sprite_update_all()</code> auf.
@@ -248,6 +357,7 @@ Bibliothek.</p>
         "titel": "Ton",
         "untertitel": "sound.h &ndash; Toene und Melodien am Piezo",
         "einleitung": """
+<p class="einbinden"><b>Einbinden</b> <code>#include "megalib/sound/sound.h"</code></p>
 <p>Der Piepser haengt an PB3. Timer0 erzeugt die Tonhoehe, Timer2 zaehlt die
 Dauer ab. Eine Melodie laeuft dadurch im Hintergrund weiter, waehrend das
 Programm weiterrechnet: <code>sound_melodie()</code> kehrt sofort zurueck.</p>
@@ -278,6 +388,7 @@ Programm weiterrechnet: <code>sound_melodie()</code> kehrt sofort zurueck.</p>
         "titel": "Zufall",
         "untertitel": "random.h &ndash; Zufallszahlen fuer Spiele",
         "einleitung": """
+<p class="einbinden"><b>Einbinden</b> <code>#include "megalib/display/random.h"</code></p>
 <p>Ein Mikrocontroller startet jedes Mal gleich. Ohne Zutun wuerde ein Wuerfel
 nach dem Einschalten immer dieselbe Folge werfen. <code>random_init()</code>
 verhindert das, indem es den Startwert aus dem Rauschen des ADC bildet.</p>

@@ -283,6 +283,17 @@ pre.code a.l:hover { text-decoration: underline; }
 .merkliste { max-width: 74ch; padding-left: 20px; }
 .merkliste li { margin-bottom: 7px; }
 
+/* Die Include-Zeile am Kopf eines Reiters */
+.einbinden {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 8px 12px;
+  background: var(--flaeche-2); border: 1px solid var(--rand); border-radius: 8px;
+}
+.einbinden b {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--gedaempft);
+}
+
 /* --- Hinweise --- */
 .rueckgabe { margin: 0 0 10px; }
 .etikett {

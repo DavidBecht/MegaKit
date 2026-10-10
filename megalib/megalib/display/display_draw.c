@@ -161,10 +161,10 @@ void display_draw_show(void)
 
 		uint8_t x_min = _dirty_x_min[vp];
 		uint8_t x_max = _dirty_x_max[vp];
-		uint8_t pcol  = (uint8_t)(x_min + _display_x_pos);
-		uint8_t prow  = (uint8_t)((_display_base_page + vp) << 3);
+		uint8_t x_display = (uint8_t)(x_min + _display_x_pos);
+		uint8_t y_display = (uint8_t)((_display_base_page + vp) << 3);
 
-		display_burst_start(pcol, prow);
+		display_burst_start(x_display, y_display);
 		for (uint8_t x = x_min; x <= x_max; x++)
 			display_burst_write(VBUF(vp, x));
 		display_burst_end();

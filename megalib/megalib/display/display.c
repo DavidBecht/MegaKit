@@ -173,10 +173,10 @@ void display_pos(uint8_t col, uint8_t row)
 	   // Seitenadresse setzen
 	   OLED_SEND_CMD((uint8_t)(0xB0 | row));   // Set Page Start Address
 
-	   // unteres Nibble der Col-Addresse ((col*8) & 0x0F)
+	   // unteres Nibble der Spaltenadresse
 	   OLED_SEND_CMD(pixel_col & 0x0F);
 
-	   // oberes Nibble der Col-Addresse ((col*8/16) & 0x0F)
+	   // oberes Nibble der Spaltenadresse
 	   OLED_SEND_CMD(0x10 | ((pixel_col>>4) & 0x0F));
 
 	   twi_s_stop();
@@ -249,15 +249,15 @@ void display_string(const char *line, bool from_progmem)
 	}
 }
 
-void display_string_pos (uint8_t posx, uint8_t posy, const char *line)
+void display_string_pos (uint8_t col, uint8_t row, const char *line)
 {
-   display_pos(posx, posy); 
+   display_pos(col, row); 
    display_string(line, false);
 }
 
-void display_string_pos_P(uint8_t posx, uint8_t posy, PGM_P line)
+void display_string_pos_P(uint8_t col, uint8_t row, PGM_P line)
 {
-	display_pos(posx, posy);
+	display_pos(col, row);
 	display_string(line, true);
 }
 
@@ -288,7 +288,7 @@ int8_t  display_printf(const char *fmt, ...)
    return _laenge_begrenzen(c_count);
 }
 
-int8_t display_printf_pos_P(uint8_t posx, uint8_t posy, PGM_P fmt, ...)
+int8_t display_printf_pos_P(uint8_t col, uint8_t row, PGM_P fmt, ...)
 {
    char buf[25];
    int c_count;                 // vsnprintf liefert int, nicht int8_t
@@ -299,11 +299,11 @@ int8_t display_printf_pos_P(uint8_t posx, uint8_t posy, PGM_P fmt, ...)
    va_end(args);
 
    if (c_count >= 0)
-      display_string_pos(posx, posy, buf);
+      display_string_pos(col, row, buf);
    return _laenge_begrenzen(c_count);
 }
 
-int8_t display_printf_pos(uint8_t posx, uint8_t posy, const char *fmt, ...)
+int8_t display_printf_pos(uint8_t col, uint8_t row, const char *fmt, ...)
 {
    char buf[25];
    int c_count;                 // vsnprintf liefert int, nicht int8_t
@@ -314,39 +314,39 @@ int8_t display_printf_pos(uint8_t posx, uint8_t posy, const char *fmt, ...)
    va_end(args);
    
    if (c_count >= 0)
-      display_string_pos(posx, posy, buf);
+      display_string_pos(col, row, buf);
    return _laenge_begrenzen(c_count);
 }
 
-void display_pixel_byte (uint8_t pcol, uint8_t prow, uint8_t pbyte)
+void display_pixel_byte (uint8_t x, uint8_t y, uint8_t byte)
 {
-   if ((prow < OLED_PIXEL_Y) && (pcol < OLED_PIXEL_X))
+   if ((y < OLED_PIXEL_Y) && (x < OLED_PIXEL_X))
    {
-	  prow >>= 3; // prow / 8
+	  y >>= 3; // y / 8
 
 	  twi_s_start(OLED_DEV_ADDR);
 	  // Seitenadresse setzen
-	  OLED_SEND_CMD((uint8_t)(0xB0 | prow));  // Set Page Start Address
-      // unteres Nibble der Col-Addresse ((col*8) & 0x0F)
-	  OLED_SEND_CMD(pcol & 0x0F);
-	  // oberes Nibble der Col-Addresse ((col*8/16) & 0x0F)
-	  OLED_SEND_CMD(0x10 | ((pcol>>4) & 0x0F));
+	  OLED_SEND_CMD((uint8_t)(0xB0 | y));  // Set Page Start Address
+      // unteres Nibble der Spaltenadresse
+	  OLED_SEND_CMD(x & 0x0F);
+	  // oberes Nibble der Spaltenadresse
+	  OLED_SEND_CMD(0x10 | ((x>>4) & 0x0F));
 	  twi_s_stop();
 
      twi_s_start(OLED_DEV_ADDR);
      twi_s_write(OLED_CTRL_BYTE_DATA);
-	  twi_s_write(pbyte);
+	  twi_s_write(byte);
  	  twi_s_stop();
   }
 }
 
-void display_burst_start(uint8_t pcol, uint8_t prow)
+void display_burst_start(uint8_t x, uint8_t y)
 {
-   prow >>= 3;
+   y >>= 3;
    twi_s_start(OLED_DEV_ADDR);
-   OLED_SEND_CMD(0xB0 | prow);
-   OLED_SEND_CMD(pcol & 0x0F);
-   OLED_SEND_CMD(0x10 | ((pcol >> 4) & 0x0F));
+   OLED_SEND_CMD(0xB0 | y);
+   OLED_SEND_CMD(x & 0x0F);
+   OLED_SEND_CMD(0x10 | ((x >> 4) & 0x0F));
    twi_s_stop();
    twi_s_start(OLED_DEV_ADDR);
    twi_s_write(OLED_CTRL_BYTE_DATA);

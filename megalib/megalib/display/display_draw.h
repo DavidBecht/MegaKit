@@ -229,6 +229,16 @@ void display_draw_clear(void);
  *       Display-Pages; dort schreibt jede Zeichenoperation unmittelbar, und
  *       dieser Aufruf bleibt ohne Wirkung. Er ist dennoch erforderlich, damit
  *       derselbe Programmcode mit beiden Fensterlagen arbeitet.
+ *
+ * @warning Ausgaben von display.h, die innerhalb des Zeichenfensters liegen,
+ *          werden hier ueberschrieben. Uebertragen wird naemlich der gesamte
+ *          geaenderte Bereich des Videopuffers, und der weiss nichts von
+ *          Text, der am Puffer vorbei auf das Display geschrieben wurde.
+ *          display_string_pos() und display_printf_pos() gehoeren deshalb
+ *          neben das Fenster, nicht hinein. Zu beachten: Eine Spalte oder
+ *          Zeile ausserhalb des gueltigen Rasters laesst den Text an der
+ *          aktuellen Cursorposition erscheinen, also meist bei (0, 0) und
+ *          damit mitten im Fenster.
  */
 void display_draw_show(void);
 

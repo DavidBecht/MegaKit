@@ -22,6 +22,20 @@
 #define OLED_PIXEL_X 128   ///< Breite des Displays in Pixel
 #define OLED_PIXEL_Y 64    ///< Hoehe des Displays in Pixel
 
+/* --- Koordinaten ----------------------------------------------------------
+ *
+ * In der ganzen Bibliothek gilt dieselbe Regel:
+ *
+ *   col, row   zaehlen im Zeichenraster, also in ganzen Zeichen. So rechnen
+ *              ausschliesslich die Textfunktionen dieser Datei.
+ *   x, y       zaehlen in Pixel. So rechnen display_pixel_byte(),
+ *              display_burst_start() und alles in display_draw.h.
+ *
+ * display_string_pos(2, 1, "HI") schreibt also an die dritte Zeichenstelle
+ * der zweiten Zeile, nicht an die Pixelposition (2, 1). Wie viele Zeichen und
+ * Zeilen es gibt, sagen display_chars() und display_lines().
+ */
+
 /**
  * @brief Initialisiert die Schnittstelle und schaltet das Display ein.
  *
@@ -37,17 +51,25 @@ void display_init(void);
 /**
  * @brief Zahl der Textzeilen, die auf das Display passen.
  *
- * Der Wert haengt vom gewaehlten Zeichensatz ab und aendert sich mit der
- * Auswahl in font/FontData.c: 8 Zeilen beim 5x8-Satz, 12 beim 3x5-Satz.
+ * Der Wert ergibt sich aus der Hoehe des Zeichensatzes in font/FontData.c:
+ * 8 Zeilen beim 5x8- und beim 7x8-Satz, rechnerisch 12 beim 3x5-Satz.
  *
  * @return Zahl der Zeilen.
+ *
+ * @warning Beim 3x5-Satz ist dieser Wert zu gross. Eine Zeile wird als Page
+ *          des Displays adressiert, und davon gibt es acht. Nutzbar sind
+ *          deshalb immer nur die Zeilen 0 bis 7, unabhaengig vom Zeichensatz.
+ *          Eine groessere Zeilennummer erzeugt ein ungueltiges Kommando; der
+ *          Text landet an unvorhersehbarer Stelle.
  */
 uint8_t display_lines (void);
 
 /**
  * @brief Zahl der Zeichen, die in eine Textzeile passen.
  *
- * Ergibt sich aus Zeichenbreite und Zeichenabstand des gewaehlten Satzes.
+ * Ergibt sich aus Zeichenbreite und Zeichenabstand des gewaehlten Satzes in
+ * font/FontData.c: 32 Zeichen beim 3x5-Satz (3 Pixel breit, 1 Pixel Abstand),
+ * 18 beim 5x8-Satz, 16 beim 7x8-Satz.
  *
  * @return Zahl der Zeichen je Zeile.
  */
@@ -92,17 +114,19 @@ void display_scroll_down (void);
 /**
  * @brief Setzt den Cursor auf eine Position im Zeichenraster.
  *
- * Die Zaehlung beginnt bei 0, posx von links nach rechts, posy von oben nach
- * unten. Es handelt sich um Zeichen-, nicht um Pixelkoordinaten: posx wird mit
- * Zeichenbreite zuzueglich Abstand multipliziert, posy bezeichnet die Textzeile.
+ * Die Zaehlung beginnt bei 0, col von links nach rechts, row von oben nach
+ * unten. Es handelt sich um Zeichen-, nicht um Pixelkoordinaten: col wird mit
+ * Zeichenbreite zuzueglich Abstand multipliziert, row bezeichnet die Textzeile.
  *
- * @param posx Spalte, 0 bis display_chars() - 1.
- * @param posy Zeile, 0 bis display_lines() - 1.
+ * @param col Spalte im Zeichenraster, 0 bis display_chars() - 1, beim
+ *            3x5-Satz also 0 bis 31. Keine Pixelangabe.
+ * @param row Zeile, 0 bis 7. Eine Zeile entspricht einer Page des Displays.
  *
  * @note Liegt eine der Angaben ausserhalb des gueltigen Bereichs, bleibt die
- *       Cursorposition unveraendert; eine Fehlermeldung erfolgt nicht.
+ *       Cursorposition unveraendert; eine Fehlermeldung erfolgt nicht. Die
+ *       naechste Ausgabe erscheint dann dort, wo der Cursor gerade steht.
  */
-void display_pos(uint8_t posx, uint8_t posy);
+void display_pos(uint8_t col, uint8_t row);
 
 /**
  * @brief Gibt ein Zeichen an der aktuellen Cursorposition aus.
@@ -126,11 +150,18 @@ void display_string(const char *line, bool from_progmem);
 /**
  * @brief Schreibt eine Zeichenkette aus dem RAM an eine Rasterposition.
  *
- * @param posx Spalte im Zeichenraster.
- * @param posy Zeile im Zeichenraster.
+ * @param col Spalte im Zeichenraster, 0 bis display_chars() - 1, beim
+ *            3x5-Satz also 0 bis 31. Keine Pixelangabe.
+ * @param row Zeile, 0 bis 7.
  * @param line Nullterminierte Zeichenkette im RAM.
+ *
+ * @note Eine Position ausserhalb des Rasters wird stillschweigend verworfen,
+ *       der Text aber trotzdem ausgegeben: an der aktuellen Cursorposition.
+ *       Das ist die haeufigste Ursache dafuer, dass eine Ausgabe gar nicht
+ *       oder an unerwarteter Stelle erscheint. Wer in Pixeln rechnen will,
+ *       verwendet display_draw_string() aus display_draw.h.
  */
-void display_string_pos (uint8_t posx, uint8_t posy, const char *line);
+void display_string_pos (uint8_t col, uint8_t row, const char *line);
 
 /**
  * @brief Schreibt eine Zeichenkette aus dem Flash an eine Rasterposition.
@@ -138,11 +169,18 @@ void display_string_pos (uint8_t posx, uint8_t posy, const char *line);
  * Vermeidet SRAM-Bedarf, da gewoehnliche Zeichenketten beim Start ins SRAM
  * kopiert werden. Aufruf: display_string_pos_P(0, 0, PSTR("Hallo"));
  *
- * @param posx Spalte im Zeichenraster.
- * @param posy Zeile im Zeichenraster.
+ * @param col Spalte im Zeichenraster, 0 bis display_chars() - 1, beim
+ *            3x5-Satz also 0 bis 31. Keine Pixelangabe.
+ * @param row Zeile, 0 bis 7.
  * @param line Nullterminierte Zeichenkette im PROGMEM.
+ *
+ * @note Eine Position ausserhalb des Rasters wird stillschweigend verworfen,
+ *       der Text aber trotzdem ausgegeben: an der aktuellen Cursorposition.
+ *       Das ist die haeufigste Ursache dafuer, dass eine Ausgabe gar nicht
+ *       oder an unerwarteter Stelle erscheint. Wer in Pixeln rechnen will,
+ *       verwendet display_draw_string() aus display_draw.h.
  */
-void display_string_pos_P(uint8_t posx, uint8_t posy, PGM_P line);
+void display_string_pos_P(uint8_t col, uint8_t row, PGM_P line);
 
 /**
  * @brief Schreibt formatierten Text an die aktuelle Cursorposition.
@@ -163,14 +201,20 @@ int8_t  display_printf(const char *fmt, ...);
 /**
  * @brief Schreibt formatierten Text an eine Rasterposition.
  *
- * @param posx Spalte im Zeichenraster.
- * @param posy Zeile im Zeichenraster.
- * @param fmt  Formatstring im RAM, danach die einzusetzenden Werte.
+ * @param col Spalte im Zeichenraster, 0 bis display_chars() - 1, beim
+ *            3x5-Satz also 0 bis 31. Keine Pixelangabe.
+ * @param row Zeile, 0 bis 7.
+ * @param fmt Formatstring im RAM, danach die einzusetzenden Werte.
  * @return Wie bei display_printf().
  *
+ * @note Eine Position ausserhalb des Rasters wird stillschweigend verworfen,
+ *       der Text aber trotzdem ausgegeben: an der aktuellen Cursorposition.
+ *       Das ist die haeufigste Ursache dafuer, dass eine Ausgabe gar nicht
+ *       oder an unerwarteter Stelle erscheint. Wer in Pixeln rechnen will,
+ *       verwendet display_draw_string() aus display_draw.h.
  * @warning Ebenfalls auf 24 Zeichen begrenzt, siehe display_printf().
  */
-int8_t  display_printf_pos(uint8_t posx, uint8_t posy, const char *fmt, ...);
+int8_t  display_printf_pos(uint8_t col, uint8_t row, const char *fmt, ...);
 
 /**
  * @brief Wie display_printf_pos(), der Formatstring liegt aber im Flash.
@@ -178,28 +222,35 @@ int8_t  display_printf_pos(uint8_t posx, uint8_t posy, const char *fmt, ...);
  * Spart SRAM, denn ein gewoehnlicher Formatstring wird beim Start ins SRAM
  * kopiert. Aufruf: display_printf_pos_P(0, 5, PSTR("Wert: %u"), wert);
  *
- * @param posx Spalte im Zeichenraster.
- * @param posy Zeile im Zeichenraster.
- * @param fmt  Formatstring im PROGMEM, danach die einzusetzenden Werte.
+ * @param col Spalte im Zeichenraster, 0 bis display_chars() - 1, beim
+ *            3x5-Satz also 0 bis 31. Keine Pixelangabe.
+ * @param row Zeile, 0 bis 7.
+ * @param fmt Formatstring im PROGMEM, danach die einzusetzenden Werte.
  * @return Wie bei display_printf().
  *
+ * @note Eine Position ausserhalb des Rasters wird stillschweigend verworfen,
+ *       der Text aber trotzdem ausgegeben: an der aktuellen Cursorposition.
+ *       Das ist die haeufigste Ursache dafuer, dass eine Ausgabe gar nicht
+ *       oder an unerwarteter Stelle erscheint. Wer in Pixeln rechnen will,
+ *       verwendet display_draw_string() aus display_draw.h.
  * @warning Ebenfalls auf 24 Zeichen begrenzt, siehe display_printf().
  */
-int8_t  display_printf_pos_P(uint8_t posx, uint8_t posy, PGM_P fmt, ...);
+int8_t  display_printf_pos_P(uint8_t col, uint8_t row, PGM_P fmt, ...);
 
 /**
  * @brief Schreibt ein Byte direkt in den Grafikspeicher.
  *
  * Jedes Bit entspricht einem Pixel, Bit 0 liegt oben. Das Byte fuellt stets
- * einen vollstaendigen, acht Pixel hohen Streifen; prow wird daher auf die
+ * einen vollstaendigen, acht Pixel hohen Streifen; y wird daher auf die
  * naechstniedrigere Page abgerundet. Einzige Grafikfunktion dieser Schicht,
  * auf der display_draw.c aufsetzt.
  *
- * @param pcol  Spalte in Pixel, 0 bis 127.
- * @param prow  Zeile in Pixel, 0 bis 63. Wird auf ein Vielfaches von 8 gerundet.
- * @param pbyte Die acht zu setzenden Pixel.
+ * @param x    X-Position in Pixel, 0 bis 127.
+ * @param y    Y-Position in Pixel, 0 bis 63. Wird auf ein Vielfaches von 8
+ *             abgerundet.
+ * @param byte Die acht zu setzenden Pixel.
  */
-void display_pixel_byte (uint8_t pcol, uint8_t prow, uint8_t pbyte);
+void display_pixel_byte (uint8_t x, uint8_t y, uint8_t byte);
 
 /**
  * @brief Setzt den Schreibzeiger und beginnt eine fortlaufende Uebertragung.
@@ -209,13 +260,14 @@ void display_pixel_byte (uint8_t pcol, uint8_t prow, uint8_t pbyte);
  * anfallen. Auf jeden Aufruf muessen display_burst_write() und
  * display_burst_end() folgen.
  *
- * @param pcol Startspalte in Pixel.
- * @param prow Startzeile in Pixel, wird auf ein Vielfaches von 8 gerundet.
+ * @param x X-Position in Pixel, 0 bis 127.
+ * @param y Y-Position in Pixel, 0 bis 63. Wird auf ein Vielfaches von 8
+ *          abgerundet.
  *
  * @warning Zwischen Start und Ende darf keine weitere Displayfunktion
  *          aufgerufen werden; andernfalls bricht die Uebertragung ab.
  */
-void display_burst_start(uint8_t pcol, uint8_t prow);
+void display_burst_start(uint8_t x, uint8_t y);
 
 /**
  * @brief Schreibt ein Byte innerhalb einer laufenden Uebertragung.
