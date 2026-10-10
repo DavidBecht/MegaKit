@@ -24,6 +24,11 @@ uint8_t twi_s_start(uint8_t address)
     return 1;           /* ACK */
 }
 
+uint8_t twi_s_rep_start(uint8_t address)
+{
+    return twi_s_start(address);
+}
+
 void twi_s_stop(void)
 {
     _state = ST_CTRL;
