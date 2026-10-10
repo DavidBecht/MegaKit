@@ -3,10 +3,19 @@
 # Ergebnis: https://davidbecht.github.io/MegaKit/
 #
 # Ausloeser:
-#   - Push auf main, wenn sich die Bibliothek oder docs/ geaendert haben
-#   - Tag vX.Y.Z  -> dieselbe Seite, im Kopf steht dann die Version
+#   - Push auf main, wenn sich die Bibliothek, docs/ oder die Versionsdateien
+#     geaendert haben
 #   - Pull Request -> nur bauen, nicht veroeffentlichen
 #   - Actions -> "Doku-Seite" -> Run workflow
+#
+# Veroeffentlicht wird ausschliesslich von main. Das Environment github-pages
+# laesst Deployments nur vom Default-Branch zu; ein Lauf auf einem Tag wurde
+# deshalb mit "not allowed to deploy to github-pages due to environment
+# protection rules" abgewiesen. Ein Tag ist als Ausloeser auch nicht noetig:
+# release.py pusht den Versions-Commit und den Tag gemeinsam, der Push auf
+# main loest diesen Workflow aus, und "git describe" findet den Tag dann
+# bereits vor. Deshalb stehen megasim/sim.py und megasound/megasound.py
+# unten in der Pfadliste.
 #
 # Einmalig einzurichten: Settings -> Pages -> Source: "GitHub Actions".
 #
@@ -18,11 +27,12 @@ name: Doku-Seite
 on:
   push:
     branches: [main]
-    tags: ["v*"]
     paths:
       - "megalib/megalib/**"
       - "docs/**"
       - ".github/workflows/pages.yml"
+      - "megasim/sim.py"            # Versions-Commit von release.py
+      - "megasound/megasound.py"    # dito
   pull_request:
     paths:
       - "megalib/megalib/**"
@@ -50,15 +60,13 @@ jobs:
           python-version: "3.12"
       - name: avr-gcc
         run: sudo apt-get update && sudo apt-get install -y gcc-avr avr-libc binutils-avr
+      # Der juengste Tag vX.Y.Z. Nach einem Release ist das die eben
+      # veroeffentlichte Version, sonst der Stand seit dem letzten Release.
       - name: Version bestimmen
         id: version
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "wert=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          else
-            letzter=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            echo "wert=${letzter:-Entwicklungsstand}" >> "$GITHUB_OUTPUT"
-          fi
+          letzter=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "wert=${letzter:-Entwicklungsstand}" >> "$GITHUB_OUTPUT"
       # --pruefen uebersetzt jedes Beispiel der Seite mit avr-gcc fuer den
       # ATmega16. Schlaegt eines fehl, wird nichts veroeffentlicht.
       - name: Seite bauen und Beispiele uebersetzen
@@ -75,7 +83,9 @@ jobs:
           path: docs/site
 
   veroeffentlichen:
-    if: github.event_name != 'pull_request'
+    # Nur von main. Jeder andere Ref wird vom Environment github-pages
+    # ohnehin abgewiesen; so faellt der Lauf gar nicht erst rot aus.
+    if: github.ref == 'refs/heads/main'
     needs: bauen
     runs-on: ubuntu-latest
     permissions:

@@ -418,7 +418,11 @@ python docs/build_docs.py --bilder display_draw_rect   # nur eines davon
 
 `docs/site/index.html` lässt sich direkt im Browser öffnen, auch ohne Server.
 Auf GitHub baut der Workflow `pages.yml` die Seite bei jeder Änderung an der
-Bibliothek neu und veröffentlicht sie.
+Bibliothek neu und veröffentlicht sie. Veröffentlicht wird **nur von `main`**:
+Das Environment `github-pages` lässt Deployments von keinem anderen Ref zu.
+Nach einem Release erscheint die neue Versionsnummer trotzdem im Kopf der
+Seite, denn `release.py` pusht den Versions-Commit zusammen mit dem Tag, und
+dieser Push auf `main` löst den Workflow aus.
 
 **Neue Funktion in der Bibliothek?** Der Kommentarblock im Header genügt, sie
 erscheint dann von selbst. Nur eintragen, in welchen Abschnitt sie gehört:
