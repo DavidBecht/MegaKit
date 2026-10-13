@@ -1,5 +1,9 @@
 # MegaKit
 
+[![megalib](https://img.shields.io/github/v/release/DavidBecht/MegaKit?label=megalib&color=0a7a46)](../../releases/latest)
+[![Doku-Seite](https://github.com/DavidBecht/MegaKit/actions/workflows/pages.yml/badge.svg)](https://davidbecht.github.io/MegaKit/)
+[![Build und Release](https://github.com/DavidBecht/MegaKit/actions/workflows/release.yml/badge.svg)](../../actions/workflows/release.yml)
+
 Software für die **MEGACARD V6.11** der HTL Rankweil (ATmega16, 12 MHz, OLED-Anzeige 128 × 64, Piezo, 4 Taster, 8 LEDs).
 
 | Teil | Wozu |

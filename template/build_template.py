@@ -20,6 +20,7 @@ Ergebnis: template/dist/Template_HTL_Rankweil_MegaLib_V<version>.zip
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -43,10 +44,25 @@ QUELLENDUNGEN = (".c", ".h")
 # Einstellung, die in jeder Konfiguration vorhanden sein muss
 F_CPU = "F_CPU=12000000UL"
 
+# Die Version wird beim Packen in diese Datei geschrieben. Im Repository
+# steht dort die zuletzt veroeffentlichte Version; das Template bekommt die
+# Nummer, unter der es ausgeliefert wird, ohne Angabe also "dev".
+VERSIONSHEADER = os.path.join("megalib", "megalib_version.h")
+VERSION_MUSTER = re.compile(rb'^(#define MEGALIB_VERSION ")[^"]*(")', re.MULTILINE)
+
 
 def abbruch(text):
     print("[template] FEHLER: " + text, file=sys.stderr)
     sys.exit(1)
+
+
+def version_stempeln(inhalt, version):
+    """Setzt MEGALIB_VERSION im Versionsheader auf die Version des Templates."""
+    neu, anzahl = VERSION_MUSTER.subn(
+        lambda t: t.group(1) + version.encode() + t.group(2), inhalt, count=1)
+    if not anzahl:
+        abbruch(f'In {VERSIONSHEADER} fehlt die Zeile #define MEGALIB_VERSION "x.y.z".')
+    return neu
 
 
 def bibliotheksdateien():
@@ -239,7 +255,13 @@ def main():
         z.write(MAIN_C, "main.c")
         z.write(ICON, "__TemplateIcon.ico")
         for pfad in dateien:
-            z.write(os.path.join(PROJEKT, pfad), pfad.replace("\\", "/"))
+            quelle = os.path.join(PROJEKT, pfad)
+            if pfad == VERSIONSHEADER:
+                with open(quelle, "rb") as f:
+                    z.writestr(pfad.replace("\\", "/"),
+                               version_stempeln(f.read(), version))
+            else:
+                z.write(quelle, pfad.replace("\\", "/"))
 
     print(f"[template] {ziel} ({len(dateien) + 1} Quelldateien)")
     if argumente.pruefen:
