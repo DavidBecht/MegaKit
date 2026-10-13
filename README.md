@@ -88,6 +88,8 @@ Aus einer Datei in einem Unterordner, etwa `spiel/spiel.c`:
 #include "../megalib/display/display_draw.h"
 ```
 
+Welcher Header wofür zuständig ist, steht in [Abschnitt 4](#4-megalib-die-bibliothek) und auf der [Doku-Seite](https://davidbecht.github.io/MegaKit/).
+
 ---
 
 ## 3. megasim: der Simulator
@@ -167,8 +169,27 @@ Die Bibliothek besteht aus Schichten, die jeweils für sich nutzbar sind:
 | `display/display_draw_sprite.c` | Animierte Figuren mit Bewegung, Kollision und Neustart |
 | `sound/sound.c` | Töne und Melodien am Piezo (PB3), läuft im Hintergrund |
 | `display/random.c` | Zufallszahlen |
+| `megalib_version.h` | nur die Versionsnummer der Bibliothek |
 
 Die genaue Beschreibung jeder Funktion steht in der jeweiligen `.h`-Datei.
+
+### Welche Version liegt im Projekt?
+
+Ein Projekt wird einmal aus dem Template angelegt und lebt danach für sich; die Bibliothek darin altert nicht mit. Welche Lieferung drinsteckt, sagt **jeder Build**. Im Ausgabefenster von Microchip Studio steht:
+
+```
+note: #pragma message: megalib 1.0.3
+```
+
+Die Zeile kommt aus `display.c` und kostet kein Byte Flash. Wer die Nummer im Programm anzeigen will, etwa im Startbildschirm oder im Selbsttest:
+
+```c
+#include "megalib/megalib_version.h"
+
+display_string_pos_P(0, 7, PSTR(MEGALIB_VERSION));
+```
+
+Gepflegt wird die Nummer nicht von Hand: `release.py` trägt sie beim Release in `megalib_version.h` ein, und `build_template.py` schreibt beim Packen die Version des Templates hinein — ohne `--version` steht dort `dev`. Deshalb gibt es in den Dateiköpfen der Bibliothek auch keine eigenen `| Version:`-Zeilen mehr: Eine Versionsnummer, eine Stelle.
 
 ### Die Funktionsübersicht im Netz
 

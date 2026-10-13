@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        random.c
-| Version:      1.1
 | Projekt:      Zufallszahlen fuer die MEGACARD
 | Beschreibung: Bibliotheksfunktionen (Implementierung)
 | Schaltung:    MEGACARD V6.11

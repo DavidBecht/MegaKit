@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        sound.c
-| Version:      1.0
 | Projekt:      Toene und Melodien auf der MEGACARD
 | Beschreibung: Bibliotheksfunktionen (Implementierung)
 | Schaltung:    MEGACARD V6.11, Piezo an PB3

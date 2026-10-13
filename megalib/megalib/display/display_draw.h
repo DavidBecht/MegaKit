@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        display_draw.h
-| Version:      1.1
 | Projekt:      Zeichenbibliothek fuer die MEGACARD
 | Beschreibung: Pixelgenaues Zeichnen in einem frei waehlbaren Fenster des
 |               128x64-Displays. Setzt auf display.c auf.

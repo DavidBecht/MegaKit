@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        display_draw_sprite.h
-| Version:      1.1
 | Projekt:      Zeichenbibliothek fuer die MEGACARD
 | Beschreibung: Verwaltung bewegter Bilder (Sprites) ueber display_draw.
 |               Bewegung, Animation, Kollision und Neuzeichnen je Bild.

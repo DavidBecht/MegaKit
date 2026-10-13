@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        FontData.c
-| Version:      1.0
 | Projekt:      Display-Bibliothek fuer die MEGACARD
 | Beschreibung:
 | Schaltung:    MEGACARD V6.11

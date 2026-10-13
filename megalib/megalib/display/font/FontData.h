@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        FontData.h
-| Version:      1.1
 | Projekt:      Display-Bibliothek fuer die MEGACARD
 | Beschreibung: Beschreibung des gewaehlten Zeichensatzes. Welcher es ist,
 |               wird in FontData.c umgeschaltet.

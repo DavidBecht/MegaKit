@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        twi_soft.h
-| Version:      1.2
 | Projekt:      I2C Softwareloesung fuer die MEGACARD
 | Beschreibung: I2C in Software fuer die Anzeige an der MEGACARD.
 |               Der ATmega16 hat zwar eine Hardware-Schnittstelle, die Pins

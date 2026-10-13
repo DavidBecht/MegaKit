@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        twi_soft.c
-| Version:      1.1
 | Projekt:      I2C Softwareloesung Bibliothek
 | Beschreibung: I2C in Software fuer die Anzeige an der MEGACARD
 | Schaltung:    siehe twi_soft_port_def.h

@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        display.h
-| Version:      1.1
 | Projekt:      Display-Bibliothek fuer die MEGACARD
 | Beschreibung: Treiber fuer das SSD1306-OLED. Zeichenweise Textausgabe in
 |               einem Raster aus Zeilen und Spalten, dazu ein Zugang zum

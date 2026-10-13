@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        lama.c
-| Version:      1.0
 | Projekt:      Zeichenbibliothek fuer die MEGACARD
 | Beschreibung: Sieben Animationsbilder eines Lamas, je 48x48 Pixel,
 |               vertikal abgelegt. Beispieldaten fuer das Sprite-System.

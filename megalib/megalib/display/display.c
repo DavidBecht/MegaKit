@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        display.c
-| Version:      1.0
 | Projekt:      Display-Bibliothek fuer die MEGACARD
 | Beschreibung: Bibliotheksfunktionen (Implementierung)
 | Schaltung:    MEGACARD V6.11, OLED an PB0 (SCL) und PB1 (SDA)
@@ -14,6 +13,12 @@
 #include "./twi/twi_soft.h"  // Sofware TWI-Schnittstelle
 #include "./font/FontData.h"  // Font-Informationen
 #include "display.h" // Schnittstellendefinitionen
+#include "../megalib_version.h"
+
+/* Meldet die Version beim Uebersetzen in das Ausgabefenster von Microchip
+   Studio. Die Zeile steht bewusst hier und nicht in einem Header: So kommt
+   sie genau einmal je Projekt und nicht einmal je Quelldatei. */
+#pragma message("megalib " MEGALIB_VERSION)
 
 // Lokale Makros
 #define OLED_CTRL_BYTE_CMD  0x80 // 0b1000 0000

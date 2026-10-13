@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        lama.h
-| Version:      1.0
 | Projekt:      Zeichenbibliothek fuer die MEGACARD
 | Beschreibung: Sieben Animationsbilder eines Lamas, je 48x48 Pixel.
 | Schaltung:    MEGACARD V6.11

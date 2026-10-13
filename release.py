@@ -5,9 +5,9 @@ Ablauf:
   1. Prueft, dass das Repository releasefaehig ist: Branch main, auf
      demselben Stand wie origin/main, keine offenen Aenderungen.
   2. Bestimmt die neue Version aus dem letzten Tag vX.Y.Z.
-  3. Setzt VERSION in megasim/sim.py und megasound/megasound.py auf die neue
-     Version und committet das, damit sich die Programme mit der Version des
-     Releases melden.
+  3. Traegt die neue Version in megasim/sim.py, megasound/megasound.py und
+     megalib/megalib/megalib_version.h ein und committet das, damit sich
+     Programme und Bibliothek mit der Version des Releases melden.
   4. Legt den Tag vX.Y.Z an und pusht Commit und Tag. Der Tag startet den
      Workflow .github/workflows/release.yml, der das Release baut.
 
@@ -20,9 +20,10 @@ Offene Dateien im Arbeitsverzeichnis:
     weil sie meist bedeuten, dass noch etwas ins Release gehoert haette;
     mit --unsauber wird trotzdem released.
 
-    Eine Ausnahme bleibt hart: offene Aenderungen in megasim/sim.py oder
-    megasound/megasound.py. Diese beiden Dateien schreibt und committet das
-    Skript selbst, fremde Aenderungen darin liefen ungewollt mit.
+    Eine Ausnahme bleibt hart: offene Aenderungen in einer der Dateien, in
+    denen die Version steht (siehe VERSIONSDATEIEN). Die schreibt und
+    committet das Skript selbst, fremde Aenderungen darin liefen ungewollt
+    mit.
 
 Verwendung:
     python release.py               # 1.2.3 -> 1.2.4; beim ersten Release die
@@ -42,11 +43,18 @@ import sys
 
 WURZEL = os.path.dirname(os.path.abspath(__file__))
 HAUPTZWEIG = "main"
+PY_MUSTER = re.compile(rb"^VERSION = '(\d+)\.(\d+)\.(\d+)'(?=\r?$)", re.MULTILINE)
+H_MUSTER = re.compile(rb'^#define MEGALIB_VERSION "(\d+)\.(\d+)\.(\d+)"(?=\r?$)',
+                      re.MULTILINE)
+
+# Jede Datei, in der die Version steht: Pfad, Muster ihrer Zeile und die
+# Vorlage, die an deren Stelle tritt.
 VERSIONSDATEIEN = (
-    os.path.join("megasim", "sim.py"),
-    os.path.join("megasound", "megasound.py"),
+    (os.path.join("megasim", "sim.py"), PY_MUSTER, b"VERSION = '%d.%d.%d'"),
+    (os.path.join("megasound", "megasound.py"), PY_MUSTER, b"VERSION = '%d.%d.%d'"),
+    (os.path.join("megalib", "megalib", "megalib_version.h"), H_MUSTER,
+     b'#define MEGALIB_VERSION "%d.%d.%d"'),
 )
-VERSION_MUSTER = re.compile(rb"^VERSION = '(\d+)\.(\d+)\.(\d+)'(?=\r?$)", re.MULTILINE)
 TAG_MUSTER = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 
 
@@ -90,9 +98,9 @@ def sauber_pruefen(unsauber_erlaubt):
             print("          " + zeile[3:])
 
     if geaendert:
-        # Diese beiden Dateien schreibt und committet das Skript gleich
-        # selbst. Stehen dort eigene Aenderungen, kaemen sie ungewollt mit.
-        versionsdateien = {p.replace(os.sep, "/") for p in VERSIONSDATEIEN}
+        # Diese Dateien schreibt und committet das Skript gleich selbst.
+        # Stehen dort eigene Aenderungen, kaemen sie ungewollt mit.
+        versionsdateien = {d[0].replace(os.sep, "/") for d in VERSIONSDATEIEN}
         betroffen = [z for z in geaendert if z[3:] in versionsdateien]
         if betroffen:
             abbruch("Offene Aenderungen in einer Versionsdatei; sie wuerden im "
@@ -133,11 +141,11 @@ def letzte_version():
 
 
 def dateiversion():
-    """Hoechste VERSION aus den Programmen."""
+    """Hoechste Version, die in den Dateien steht."""
     versionen = []
-    for relativ in VERSIONSDATEIEN:
+    for relativ, muster, _ in VERSIONSDATEIEN:
         with open(os.path.join(WURZEL, relativ), "rb") as f:
-            treffer = VERSION_MUSTER.search(f.read())
+            treffer = muster.search(f.read())
         if treffer:
             versionen.append(tuple(int(t) for t in treffer.groups()))
     return max(versionen, default=(0, 0, 0))
@@ -161,17 +169,17 @@ def neue_version(alt, angabe):
 
 
 def versionen_setzen(version):
-    """Setzt VERSION in den Programmen. Liefert die geaenderten Dateien."""
-    text = b"VERSION = '%d.%d.%d'" % version
+    """Setzt die Version in allen Dateien. Liefert die geaenderten."""
     geaendert = []
-    for relativ in VERSIONSDATEIEN:
+    for relativ, muster, vorlage in VERSIONSDATEIEN:
         pfad = os.path.join(WURZEL, relativ)
         # Bytes: BOM und Zeilenenden bleiben, wie sie sind
         with open(pfad, "rb") as f:
             inhalt = f.read()
-        if not VERSION_MUSTER.search(inhalt):
-            abbruch(f"In {relativ} fehlt eine Zeile VERSION = 'x.y.z'.")
-        neu = VERSION_MUSTER.sub(text, inhalt, count=1)
+        if not muster.search(inhalt):
+            abbruch(f"In {relativ} fehlt die Zeile mit der Version, Muster:\n"
+                    + (vorlage % (0, 0, 0)).decode())
+        neu = muster.sub(vorlage % version, inhalt, count=1)
         if neu != inhalt:
             with open(pfad, "wb") as f:
                 f.write(neu)

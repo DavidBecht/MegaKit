@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        display_draw_sprite.c
-| Version:      1.1
 | Projekt:      Zeichenbibliothek fuer die MEGACARD
 | Beschreibung: Bibliotheksfunktionen (Implementierung)
 | Schaltung:    MEGACARD V6.11

@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        sound.h
-| Version:      1.1
 | Projekt:      Toene und Melodien auf der MEGACARD
 | Beschreibung: Einstimmiger Tongenerator fuer den Piepser an OC0 (PB3).
 |               Spielt Melodien ab, die megasound.py aus einer MIDI-Datei

@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        twi_soft_port_def.h
-| Version:      1.0
 | Projekt:      I2C Softwareloesung Bibliothek
 | Beschreibung: I2C in Software fuer die Anzeige an der MEGACARD
 | Schaltung:    SCL PB0, SDA PB1

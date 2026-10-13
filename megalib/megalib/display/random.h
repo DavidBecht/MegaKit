@@ -1,6 +1,5 @@
 /*-------------------------------------------------------------------------*\
 | Datei:        random.h
-| Version:      1.1
 | Projekt:      Zufallszahlen fuer die MEGACARD
 | Beschreibung: Pseudo-Zufallszahlen, wahlweise mit einem Startwert aus dem
 |               Rauschen des Analogeingangs.

@@ -113,6 +113,7 @@ einzustellen:</p>
 &#9500;&#9472; main.c                        &#8592; hier wird programmiert
 &#9500;&#9472; MeinSpiel.cproj
 &#9492;&#9472; megalib/
+   &#9500;&#9472; megalib_version.h          Versionsnummer der Bibliothek
    &#9500;&#9472; display/
    &#9474;  &#9500;&#9472; display.h               Text ausserhalb des Zeichenfensters
    &#9474;  &#9500;&#9472; display_draw.h          Zeichnen innerhalb des Fensters
@@ -174,6 +175,11 @@ von selbst. <code>font/</code> und <code>twi/</code> braucht deshalb niemand
 einzubinden: Sie arbeiten im Hintergrund.</li>
 <li><b><code>display_draw_sprite.h</code> holt <code>display_draw.h</code>
 selbst</b> &ndash; eine Zeile genuegt fuer beides.</li>
+<li><b>Welche Version der Bibliothek liegt im Projekt?</b> Jeder Build
+schreibt sie in das Ausgabefenster von Microchip Studio:
+<code>note: #pragma message: megalib 1.0.3</code>. Im Programm anzeigen laesst
+sie sich mit <code>#include "megalib/megalib_version.h"</code> und
+<code>PSTR(MEGALIB_VERSION)</code>.</li>
 <li><b><code>display_draw.h</code> holt <code>display.h</code> aber nicht.</b>
 Wer im Fenster zeichnet <i>und</i> daneben Text schreibt, braucht beide Zeilen.
 Fehlt die zweite, meldet der Compiler
