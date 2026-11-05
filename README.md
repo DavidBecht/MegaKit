@@ -11,6 +11,7 @@ Software für die **MEGACARD V6.11** der HTL Rankweil (ATmega16, 12 MHz, OLED-An
 | **megalib** | C-Bibliothek für die MEGACARD: Anzeige, Zeichnen, Bitmaps, animierte Sprites, Ton, Zufall |
 | **megasim** | Simulator für den PC. Startet ein Microchip-Studio-Projekt ohne Hardware, mit Anzeige, LEDs, Tastern und Ton |
 | **megasound** | Wandelt MIDI-Dateien in Tontabellen für die megalib um |
+| **[MegaPiskel](megapiskel/README.md)** | Browser-Erweiterung für [Piskel](https://www.piskelapp.com): Bilder zeichnen und als Bitmap-Code für die megalib exportieren, vorhandene Bitmaps importieren |
 | **Template** | Projektvorlage für Microchip Studio mit eingebauter megalib |
 
 Die fertigen Programme gibt es unter **[Releases](../../releases)**:
@@ -269,6 +270,13 @@ display_draw_bitmap(10, 10, &Herz);           // immer mit &
 display_draw_bitmap_transparent(20, 10, &Herz);
 display_clear_bitmap(10, 10, &Herz);
 ```
+
+**Bilder zeichnen:** Die Tabellen muss niemand von Hand schreiben. Mit der Browser-Erweiterung
+**[MegaPiskel](megapiskel/README.md)** zeichnet man im Pixel-Editor [Piskel](https://www.piskelapp.com)
+und kopiert den fertigen Code samt `BITMAP_VERTIKAL`- oder `BITMAP_HORIZONTAL`-Makro ins Programm.
+Umgekehrt lädt sie vorhandene Tabellen zum Weiterbearbeiten in Piskel. MegaPiskel ist kein Teil
+des Releases, sondern wird direkt aus dem Ordner `megapiskel/` in Chrome oder Edge geladen;
+die Anleitung steht in [`megapiskel/README.md`](megapiskel/README.md).
 
 ### Sprites
 
@@ -557,6 +565,7 @@ megasim/                   Simulator
 megasound/
   megasound.py             Programm
   build.py                 baut megasound.exe
+megapiskel/                Browser-Erweiterung: Piskel-Bilder als Bitmap-Code
 template/
   main.c                   Startdatei des Templates
   build_template.py        baut das Template-ZIP
