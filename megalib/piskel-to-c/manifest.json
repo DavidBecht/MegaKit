@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Piskel → MegaCard C",
+  "version": "1.1",
+  "description": "Exportiert Piskel-Sprites als BITMAP_HORIZONTAL C-Code fuer die MegaCard",
+  "content_scripts": [
+    {
+      "matches": ["*://www.piskelapp.com/*", "*://piskelapp.com/*"],
+      "js": ["content-main.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["*://www.piskelapp.com/*", "*://piskelapp.com/*"],
+      "js": ["content-ui.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
