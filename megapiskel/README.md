@@ -18,18 +18,24 @@ genauso: weiße Pixel auf schwarzem Hintergrund.
 MegaPiskel ist nicht im Chrome Web Store, sondern wird als entpackte Erweiterung geladen.
 Das funktioniert in Chrome, Edge und anderen Chromium-Browsern.
 
-1. Den Ordner `megapiskel/` aus dem MegaKit an einen festen Ort legen (der Browser lädt die
-   Dateien bei jedem Start von dort, der Ordner darf danach nicht verschoben werden).
+1. Aus dem neuesten [Release](https://github.com/DavidBecht/MegaKit/releases/latest) die Datei
+   `MegaPiskel_V….zip` herunterladen und an einem festen Ort entpacken, z. B. nach `C:\Tools`.
+   Dabei entsteht der Ordner `MegaPiskel`. Der Browser lädt die Dateien bei jedem Start von dort,
+   der Ordner darf danach nicht verschoben oder gelöscht werden.
 2. Die Erweiterungsseite öffnen:
    - Chrome: `chrome://extensions`
    - Edge: `edge://extensions`
 3. **Entwicklermodus** einschalten (Chrome: Schalter oben rechts, Edge: links in der Seitenleiste).
-4. **Entpackte Erweiterung laden** anklicken und den Ordner `megapiskel/` auswählen
+4. **Entpackte Erweiterung laden** anklicken und den entpackten Ordner `MegaPiskel` auswählen
    (den Ordner, in dem `manifest.json` liegt).
 5. Die Erweiterung erscheint in der Liste. Ist piskelapp.com schon offen, die Seite neu laden.
 
-**Aktualisieren:** Nach einer Änderung an den Dateien auf der Erweiterungsseite beim Eintrag den
-Pfeil ↻ anklicken und piskelapp.com neu laden. Die Versionsnummer dort zeigt, welcher Stand geladen ist.
+**Neue Version:** Das neue ZIP am selben Ort entpacken und die alten Dateien überschreiben.
+Dann auf der Erweiterungsseite beim Eintrag den Pfeil ↻ anklicken und piskelapp.com neu laden.
+Die Versionsnummer dort zeigt, welcher Stand geladen ist.
+
+Wer im MegaKit-Repository arbeitet, kann statt des ZIP auch direkt den Ordner `megapiskel/`
+laden. Änderungen an den Dateien wirken dann nach ↻ sofort.
 
 ## Export: Piskel → C-Code
 
@@ -176,3 +182,7 @@ importieren.
 | `manifest.json` | Beschreibung der Erweiterung (Manifest V3), gilt nur für piskelapp.com |
 | `content-main.js` | Läuft im Seitenkontext von Piskel: liest die Pixel des aktuellen Frames und schreibt importierte Bitmaps |
 | `content-ui.js` | Buttons, Export- und Import-Fenster, Umwandlung zwischen Pixeln und Bytes, Lesen von C-Code |
+| `build_zip.py` | Packt das Release-ZIP `dist/MegaPiskel_V<version>.zip`, nicht Teil der Erweiterung |
+
+Das ZIP baut der Workflow bei jedem Release. Lokal: `python megapiskel/build_zip.py`. Die Version
+im Dateinamen kommt aus `manifest.json`, sie wird bei jeder Änderung der Erweiterung erhöht.

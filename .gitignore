@@ -38,6 +38,9 @@
 # ---- template: ZIP von build_template.py ----
 /template/dist/
 
+# ---- megapiskel: ZIP von build_zip.py ----
+/megapiskel/dist/
+
 # ---- docs: erzeugte Webseite ----
 # build_docs.py baut sie aus den Headern neu, der Workflow ebenso.
 # Die Beispielbilder in docs/bilder/ bleiben versioniert: Sie brauchen

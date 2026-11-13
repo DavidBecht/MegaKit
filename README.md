@@ -18,6 +18,7 @@ Die fertigen Programme gibt es unter **[Releases](../../releases)**:
 - `megasim.exe`
 - `megasound.exe`
 - `Template_HTL_Rankweil_MegaLib_V<version>.zip`
+- `MegaPiskel_V<version>.zip` (Browser-Erweiterung, Installationsanleitung `INSTALLIEREN.txt` liegt bei)
 
 Wer nur damit arbeiten will, braucht nichts selbst zu bauen.
 
@@ -274,9 +275,9 @@ display_clear_bitmap(10, 10, &Herz);
 **Bilder zeichnen:** Die Tabellen muss niemand von Hand schreiben. Mit der Browser-Erweiterung
 **[MegaPiskel](megapiskel/README.md)** zeichnet man im Pixel-Editor [Piskel](https://www.piskelapp.com)
 und kopiert den fertigen Code samt `BITMAP_VERTIKAL`- oder `BITMAP_HORIZONTAL`-Makro ins Programm.
-Umgekehrt lädt sie vorhandene Tabellen zum Weiterbearbeiten in Piskel. MegaPiskel ist kein Teil
-des Releases, sondern wird direkt aus dem Ordner `megapiskel/` in Chrome oder Edge geladen;
-die Anleitung steht in [`megapiskel/README.md`](megapiskel/README.md).
+Umgekehrt lädt sie vorhandene Tabellen zum Weiterbearbeiten in Piskel. MegaPiskel liegt als
+`MegaPiskel_V<version>.zip` im Release und wird entpackt in Chrome oder Edge geladen;
+die Anleitung steht in [`megapiskel/README.md`](megapiskel/README.md) und als `INSTALLIEREN.txt` im ZIP.
 
 ### Sprites
 
@@ -497,7 +498,7 @@ python megasim/tests/run_tests.py
 
 ## 7. Ein Release erstellen
 
-Ein Release besteht aus `megasim.exe`, `megasound.exe` und dem Template-ZIP. Gebaut wird es von GitHub Actions (`.github/workflows/release.yml`), sobald ein Tag `vX.Y.Z` gepusht wird. Das erledigt das Skript `release.py`:
+Ein Release besteht aus `megasim.exe`, `megasound.exe`, dem Template-ZIP und dem MegaPiskel-ZIP. Gebaut wird es von GitHub Actions (`.github/workflows/release.yml`), sobald ein Tag `vX.Y.Z` gepusht wird. Das erledigt das Skript `release.py`:
 
 ```
 python release.py            # naechste Patch-Version, z.B. 1.0.0 -> 1.0.1
@@ -566,6 +567,7 @@ megasound/
   megasound.py             Programm
   build.py                 baut megasound.exe
 megapiskel/                Browser-Erweiterung: Piskel-Bilder als Bitmap-Code
+  build_zip.py             packt das Release-ZIP mit Installationsanleitung
 template/
   main.c                   Startdatei des Templates
   build_template.py        baut das Template-ZIP

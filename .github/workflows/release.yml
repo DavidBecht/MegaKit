@@ -1,7 +1,8 @@
-# Baut megasim.exe, megasound.exe und das Microchip-Studio-Template.
+# Baut megasim.exe, megasound.exe, das Microchip-Studio-Template und das
+# MegaPiskel-ZIP (Browser-Erweiterung).
 #
 # Ausloeser:
-#   - Tag vX.Y.Z pushen  -> bauen, pruefen, GitHub-Release mit allen drei Dateien
+#   - Tag vX.Y.Z pushen  -> bauen, pruefen, GitHub-Release mit allen vier Dateien
 #   - Push auf main / Pull Request -> nur bauen und pruefen, Ergebnisse als Artefakte
 #   - Actions -> "Build und Release" -> Run workflow -> wie Push auf main
 #
@@ -117,12 +118,30 @@ jobs:
           if-no-files-found: error
 
   # -------------------------------------------------------------------------
+  # MegaPiskel: Browser-Erweiterung als ZIP, mit Installationsanleitung
+  # -------------------------------------------------------------------------
+  megapiskel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Packen und pruefen
+        run: python megapiskel/build_zip.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: megapiskel
+          path: megapiskel/dist/*.zip
+          if-no-files-found: error
+
+  # -------------------------------------------------------------------------
   # Release, nur fuer Tags vX.Y.Z
   # -------------------------------------------------------------------------
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
-    needs: [megasim, megasound, template]
+    needs: [megasim, megasound, template, megapiskel]
     permissions:
       contents: write
     steps:
@@ -136,7 +155,8 @@ jobs:
           tag="${GITHUB_REF_NAME#v}"
           sim=$(grep -oP "^VERSION = '\K[0-9.]+" megasim/sim.py)
           sound=$(grep -oP "^VERSION = '\K[0-9.]+" megasound/megasound.py)
-          echo "Tag $tag, megasim $sim, megasound $sound"
+          piskel=$(python3 -c "import json; print(json.load(open('megapiskel/manifest.json', encoding='utf-8'))['version'])")
+          echo "Tag $tag, megasim $sim, megasound $sound, MegaPiskel $piskel"
           # Abweichungen sind erlaubt, sollen aber auffallen
           [ "$sim" = "$tag" ]   || echo "::warning::megasim meldet sich als $sim, der Tag ist $tag"
           [ "$sound" = "$tag" ] || echo "::warning::megasound meldet sich als $sound, der Tag ist $tag"
@@ -148,10 +168,13 @@ jobs:
             echo "| \`megasim.exe\` | Simulator der MEGACARD, Version $sim |"
             echo "| \`megasound.exe\` | MIDI in Tontabelle, Version $sound |"
             echo "| \`Template_HTL_Rankweil_MegaLib_V$tag.zip\` | Projektvorlage fuer Microchip Studio mit megalib $tag |"
+            echo "| \`MegaPiskel_V$piskel.zip\` | Browser-Erweiterung fuer Piskel: Bilder als Bitmap-Code, Version $piskel |"
             echo
             echo "**Template installieren:** ZIP unveraendert nach \`Dokumente\\Atmel Studio\\7.0\\Templates\\ProjectTemplates\\\` kopieren, dann Datei → Neu → Projekt."
             echo
             echo "**Simulator in Microchip Studio:** Tools → External Tools, Command \`megasim.exe\`, Arguments \`\"\$(ProjectDir).\"\`, Use Output window anhaken."
+            echo
+            echo "**MegaPiskel installieren:** ZIP an einem festen Ort entpacken, in Chrome \`chrome://extensions\` (Edge: \`edge://extensions\`) öffnen, Entwicklermodus einschalten, „Entpackte Erweiterung laden“ und den Ordner \`MegaPiskel\` wählen. Die Anleitung liegt als \`INSTALLIEREN.txt\` im ZIP."
           } > notizen.md
       - uses: softprops/action-gh-release@v2
         with:
