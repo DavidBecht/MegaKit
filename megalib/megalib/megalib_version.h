@@ -26,6 +26,6 @@
  *     display_string_pos_P(0, 7, PSTR(MEGALIB_VERSION));
  *
  */
-#define MEGALIB_VERSION "1.0.3"
+#define MEGALIB_VERSION "1.1.0"
 
 #endif /* MEGALIB_VERSION_H_ */
